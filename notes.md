@@ -1,5 +1,6 @@
-# July 10, 2023
-# meeting notes and this week's tasks
+# Meeting Logs and other general notes
+
+## Meeting 1: July 10, 2023
 
 Work through the notebook on Data Analysis in Python, in particular, work through the Pandas section.
 
