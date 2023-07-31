@@ -1,4 +1,4 @@
-parse_chunk(lines, outfile):
+def parse_chunk(lines, outfile):
     for line in lines:
         outfile.write(line + '\n')
 
