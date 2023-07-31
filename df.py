@@ -5,4 +5,3 @@ def load_data(filename, delimiter=' '):
     df.columns = ['number1', 'number2', 'number3', 'permissions', 'owner', 'group', 'size_in_bytes', 'size_in_kb', 'access_time', 'modification_time', '--', 'full_pathname']
     return df
 
-df = load_data('filename.list')
