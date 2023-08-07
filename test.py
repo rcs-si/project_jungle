@@ -5,9 +5,9 @@ print(sys.path)
 from parsechunk import copy_lines
 from df import load_data
 
-copy_lines('/projectnb/scv/atime/projectnb_econdept.list','/projectnb/rcs-intern/alana/objects/parsed.csv')
+copy_lines('/projectnb/scv/atime/projectnb_econdept.list','/projectnb/rcs-intern/alana/objects/parsed.csv',3)
 
 df = load_data('/projectnb/rcs-intern/alana/objects/parsed.csv')
 
-df.head()
+print(df.head())
 
