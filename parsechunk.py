@@ -1,5 +1,9 @@
 import csv
 
+def parse_chunk(lines, outfile):
+    for line in lines:
+        outfile.write(line + '\n')
+
 def copy_lines(oldfile_path, newfile_path, num_lines=10000):
     with open(oldfile_path, 'r') as infile:
         with open(newfile_path, 'w') as outfile:
