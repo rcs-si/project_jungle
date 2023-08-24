@@ -1,6 +1,6 @@
-# This script parses a preprocessed .cvs file from an original .list file
+# This script parses a preprocessed .csv file from an original .list file
 # The CSV file is stored in a pandas dataframe
-# The final dataframe contains a subste of the columns that are needed for further analysis
+# The final dataframe contains a subset of the columns that are needed for further analysis
 
 import pandas as pd
 import os
