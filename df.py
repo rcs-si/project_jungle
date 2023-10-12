@@ -7,6 +7,10 @@ def load_data(filename, delimiter=','):
     df["access_datetime"] = pd.to_datetime(df['access_time'], unit='s', origin='unix')
     df["modification_datetime"] = pd.to_datetime(df['modification_time'], unit='s', origin='unix')
 
-    df['split_path'] = df['full_pathname'].str.split('/')
+    split_path = df['full_pathname'].str.split('/').tolist()
+
+    for index, split_path in enumerate(zip(*split_path)):
+        if index < 10:
+            df[f"path_part_{index}"] = split_path
 
     return df
