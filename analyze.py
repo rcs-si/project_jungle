@@ -1,7 +1,7 @@
 import pandas as pd
 
-def load_data(filename, delimiter=','):
-    df = pd.read_csv(filename, delimiter=delimiter, header=None)
+def load_data(new_file_path, delimiter=','):
+    df = pd.read_csv(new_file_path, delimiter=delimiter, header=None)
     df.columns = ['number1', 'number2', 'number3', 'permissions', 'owner', 'group', 'size_in_bytes', 'size_in_kb', 'access_time', 'modification_time', '--', 'full_pathname']
 
     df["access_datetime"] = pd.to_datetime(df['access_time'], unit='s', origin='unix')
@@ -14,3 +14,11 @@ def load_data(filename, delimiter=','):
             df[f"path_part_{index}"] = split_path
 
     return df
+
+new_file_path = '/projectnb/rcs-intern/project_jungle/pp_results.list'
+
+df = load_data(new_file_path)
+
+summed_sizes = df.groupby('path_part_4')['size_in_kb'].sum().reset_index()
+
+summed_sizes.to_csv('/projectnb/rcs-intern/project_jungle/a_results.csv')
