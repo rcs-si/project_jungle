@@ -19,6 +19,8 @@ new_file_path = '/projectnb/rcs-intern/project_jungle/pp_results.list'
 
 df = load_data(new_file_path)
 
+df.to_csv('/projectnb/rcs-intern/project_jungle/full_dataframe.csv')
+
 summed_sizes = df.groupby('path_part_4')['size_in_kb'].sum().reset_index()
 
 summed_sizes.to_csv('/projectnb/rcs-intern/project_jungle/a_results.csv')
