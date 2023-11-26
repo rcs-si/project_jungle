@@ -25,4 +25,6 @@ summed_sizes = df.groupby('path_part_4')['size_in_kb'].sum().reset_index()
 
 summed_sizes['bytes_in_gb'] = summed_sizes['size_in_kb'] / 1000000
 
+summed_sizes = summed_sizes.sort_values(by='bytes_in_gb', ascending=False)
+
 summed_sizes.to_csv('/projectnb/rcs-intern/project_jungle/a_results.csv')
