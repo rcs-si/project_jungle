@@ -27,4 +27,8 @@ summed_sizes['bytes_in_gb'] = summed_sizes['size_in_kb'] / 1000000
 
 summed_sizes = summed_sizes.sort_values(by='bytes_in_gb', ascending=False)
 
-summed_sizes.to_csv('/projectnb/rcs-intern/project_jungle/a_results.csv')
+latest_modification = df.groupby('path_part_4')['modification_time'].max().reset_index()                                                            
+
+combined_results = pd.merge(summed_sizes, latest_modification, on='path_part_4')
+
+combined_results.to_csv('/projectnb/rcs-intern/project_jungle/a_results.csv')
