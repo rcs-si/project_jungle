@@ -5,4 +5,4 @@ Project Disk Usage. This utility generates a report on the last access of the fi
 Sample data can be found in `/projectnb/scv/atime/`
 
 ## Ouput dataframe
-/projectnb/rcs-intern/Chuning/project_jungle
+`/projectnb/rcs-intern/Chuning/project_jungle`
