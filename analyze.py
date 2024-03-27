@@ -4,7 +4,7 @@ def analyze_data(df,levels, gb_threshold, time_threshold):
     df_in_use = df
     df_append = pd.DataFrame()
 
-    for l in range(5, levels):
+    for l in range(5, levels + 1):
         pjg = df_in_use.groupby(level=[i for i in range(1,l)]).agg({"size_in_bytes": "sum", "access_datetime": "min"})
         #output_file = 'ana_output.csv'
         #pjg.to_csv(output_file)
@@ -24,7 +24,7 @@ def analyze_data(df,levels, gb_threshold, time_threshold):
         df = filterfurther_df
 
         # print out intermediate output
-        filterfurther_df.to_csv("level" + str(l - 1) + "_filter.csv")
+        filterfurther_df.to_csv("level" + str(l) + "_filter.csv")
 
     df = df[(df['size_in_bytes'] > gb_threshold) | (df['access_datetime'] < time_threshold)]
     final_df = pd.concat([df, df_append])
