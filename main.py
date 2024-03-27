@@ -1,6 +1,7 @@
 import csv
 import json
 import pandas as pd
+from analyze import analyze_data
 
 def count_levels(file_path):
     return file_path.count('/')
@@ -47,16 +48,34 @@ def load_data(file_path, max_level, delimiter=','):
     
     return index_df
 
+def demo_analysis(file_path, delimiter=','):
+    df = pd.read_csv(file_path, delimiter=delimiter, header=None)
+    df.columns = ['owner', 'size_in_bytes', 'size_in_kb', 'access_time', 'full_pathname']
+    df['access_datetime'] = pd.to_datetime(df['access_time'], unit='s', origin='unix')
+
+    current_datetime = pd.Timestamp.now()
+    five_years_ago = current_datetime - pd.Timedelta(days=365*5)
+
+    filtered_df = df[(df['size_in_bytes'] > 1073741824) | (df['access_datetime'] < five_years_ago)]
+    output_file = 'demo_output.csv'
+    filtered_df.to_csv(output_file)
+
+
+
 def main():
     with open('config.json') as config_file:
         config = json.load(config_file)
-        old_file_path = config["old_file_path"]
-        new_file_path = config["new_file_path"]
+        old_file_path = config["file_path"]["old_file_path"]
+        new_file_path = config["file_path"]["new_file_path"]
         max_level, error_raise_count = process_list_files(old_file_path, new_file_path)
         index_df = load_data(new_file_path, max_level)
-        test_value = index_df.loc[('gpfs4', 'projectnb', 'econdept', 'lilymar', 'MetricsIvan', 'QTEwc.png'), 'size_in_bytes']
-        print(test_value)
-        print(error_raise_count)
+        current_datetime = pd.Timestamp.now()
+
+        years_ago = current_datetime - pd.Timedelta(days=365*config["analysis_parameter"]["years"])
+        levels = config["analysis_parameter"]["levels"]
+        gb_threshold = config["analysis_parameter"]["gb_threshold"]
+        final_df = analyze_data(index_df, levels, gb_threshold, years_ago)
+        final_df.to_csv("final_df.csv")
 
 if __name__ == "__main__":
     main()
