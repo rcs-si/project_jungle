@@ -48,19 +48,6 @@ def load_data(file_path, max_level, delimiter=','):
     
     return index_df
 
-def demo_analysis(file_path, delimiter=','):
-    df = pd.read_csv(file_path, delimiter=delimiter, header=None)
-    df.columns = ['owner', 'size_in_bytes', 'size_in_kb', 'access_time', 'full_pathname']
-    df['access_datetime'] = pd.to_datetime(df['access_time'], unit='s', origin='unix')
-
-    current_datetime = pd.Timestamp.now()
-    five_years_ago = current_datetime - pd.Timedelta(days=365*5)
-
-    filtered_df = df[(df['size_in_bytes'] > 1073741824) | (df['access_datetime'] < five_years_ago)]
-    output_file = 'demo_output.csv'
-    filtered_df.to_csv(output_file)
-
-
 
 def main():
     with open('config.json') as config_file:
