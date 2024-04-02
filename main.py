@@ -32,9 +32,11 @@ def process_list_files(input_filepath, output_filepath):
 def load_data(file_path, max_level, delimiter=','):
     df = pd.read_csv(file_path, delimiter=delimiter, header=None)
     df.columns = ['owner', 'size_in_bytes', 'size_in_kb', 'access_time', 'full_pathname']
-    
+    df['size_in_gb'] = df['size_in_bytes'] / 1e9
+
     # transfer access time to human readable format
     df['access_datetime'] = pd.to_datetime(df['access_time'], unit='s', origin='unix')
+    df = df[['owner', 'size_in_gb', 'access_datetime', 'full_pathname']]
     
     # create levels of directories and files
     split_path = df['full_pathname'].str.split('/', expand = True).iloc[:, 1:]
