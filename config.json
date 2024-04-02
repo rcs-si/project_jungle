@@ -5,7 +5,7 @@
     },
     "analysis_parameter": {
         "years": 5,
-        "levels": 12,
-        "gb_threshold": 1073741824
+        "levels": 10,
+        "gb_threshold": 10
     }
 }
