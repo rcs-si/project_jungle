@@ -6,14 +6,11 @@ def analyze_data(df,levels, gb_threshold, time_threshold):
 
     for l in range(5, levels):
         pjg = df_in_use.groupby(level=[i for i in range(1,l)]).agg({"size_in_gb": "sum", "access_datetime": "min"})
-        #output_file = 'ana_output.csv'
-        #pjg.to_csv(output_file)
 
         # filter out those directories/files that are small or not old enough
         filtered_df = pjg[(pjg['size_in_gb'] > gb_threshold) | (pjg['access_datetime'] < time_threshold)]
-        filtered_df.to_csv("anamore.csv")
+        iltered_df.to_csv("aggregate_level.csv")
         level_values = filtered_df.index.get_level_values(l)  
-        #print(df.index.get_level_values(l - 1))
         filterfurther_df = df[df.index.get_level_values(l - 1).isin(level_values)]
 
         # select those rows that have file large or old enough but do not have next index level
