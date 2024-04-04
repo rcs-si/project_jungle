@@ -43,11 +43,6 @@ def load_data(file_path, max_level, delimiter=','):
     df = pd.concat([split_path, df], axis = 1)
 
     index_df = df.set_index(df.columns[:max_level].tolist())
-    
-    # output the sample file 
-    output_file = 'output.csv'
-    index_df.to_csv(output_file, index=True)
-    
     return index_df
 
 
