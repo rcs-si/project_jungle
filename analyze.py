@@ -1,34 +1,28 @@
 import pandas as pd
 
-def load_data(new_file_path, delimiter=','):
-    df = pd.read_csv(new_file_path, delimiter=delimiter, header=None)
-    df.columns = ['number1', 'number2', 'number3', 'permissions', 'owner', 'group', 'size_in_bytes', 'size_in_kb', 'access_time', 'modification_time', '--', 'full_pathname']
+def analyze_data(df,levels, gb_threshold, time_threshold):
+    df_in_use = df
+    df_append = pd.DataFrame()
 
-    df["access_datetime"] = pd.to_datetime(df['access_time'], unit='s', origin='unix')
-    df["modification_datetime"] = pd.to_datetime(df['modification_time'], unit='s', origin='unix')
+    for l in range(5, levels):
+        pjg = df_in_use.groupby(level=[i for i in range(1,l)]).agg({"size_in_gb": "sum", "access_datetime": "min"})
 
-    split_path = df['full_pathname'].str.split('/').tolist()
+        # filter out those directories/files that are small or not old enough
+        filtered_df = pjg[(pjg['size_in_gb'] > gb_threshold) | (pjg['access_datetime'] < time_threshold)]
+        iltered_df.to_csv("aggregate_level.csv")
+        level_values = filtered_df.index.get_level_values(l)  
+        filterfurther_df = df[df.index.get_level_values(l - 1).isin(level_values)]
 
-    for index, split_path in enumerate(zip(*split_path)):
-        if index < 10:
-            df[f"path_part_{index}"] = split_path
+        # select those rows that have file large or old enough but do not have next index level
+        select = filterfurther_df[pd.isna(filterfurther_df.index.get_level_values(l)) & ((filterfurther_df['size_in_gb'] > gb_threshold) | (filterfurther_df['access_datetime'] < time_threshold))]
+        df_append = pd.concat([df_append, select])
 
-    return df
+        # update the df for next round filter
+        df = filterfurther_df
 
-new_file_path = '/projectnb/rcs-intern/project_jungle/pp_results.list'
+        # print out intermediate output
+        filterfurther_df.to_csv("level" + str(l + 1) + "_filter.csv")
 
-df = load_data(new_file_path)
-
-df.to_csv('/projectnb/rcs-intern/project_jungle/full_dataframe.csv')
-
-summed_sizes = df.groupby('path_part_4')['size_in_kb'].sum().reset_index()
-
-summed_sizes['bytes_in_gb'] = summed_sizes['size_in_kb'] / 1000000
-
-summed_sizes = summed_sizes.sort_values(by='bytes_in_gb', ascending=False)
-
-latest_modification = df.groupby('path_part_4')['modification_time'].max().reset_index()                                                            
-
-combined_results = pd.merge(summed_sizes, latest_modification, on='path_part_4')
-
-combined_results.to_csv('/projectnb/rcs-intern/project_jungle/a_results.csv')
+    df = df[(df['size_in_gb'] > gb_threshold) | (df['access_datetime'] < time_threshold)]
+    final_df = pd.concat([df, df_append])
+    return final_df
