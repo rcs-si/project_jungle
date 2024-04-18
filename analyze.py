@@ -1,6 +1,6 @@
 import pandas as pd
 
-def analyze_data(df,levels, gb_threshold, time_threshold):
+def analyze_data(df, levels, gb_threshold, time_threshold):
     df_in_use = df
     df_append = pd.DataFrame()
 
@@ -19,9 +19,6 @@ def analyze_data(df,levels, gb_threshold, time_threshold):
 
         # update the df for next round filter
         df = filterfurther_df
-
-        # print out intermediate output
-        filterfurther_df.to_csv("level" + str(l + 1) + "_filter.csv")
 
     df = df[(df['size_in_gb'] > gb_threshold) | (df['access_datetime'] < time_threshold)]
     final_df = pd.concat([df, df_append])

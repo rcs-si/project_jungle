@@ -1,7 +1,20 @@
 import csv
 import json
 import pandas as pd
+import os
 from analyze import analyze_data
+from timeit import default_timer as timer
+
+from multiprocessing import Pool
+
+def timer_func(func):
+    def wrapper(*args, **kwargs):
+        t1 = timer()
+        result = func(*args, **kwargs)
+        t2 = timer()
+        print(f'{func.__name__}() executed in {(t2-t1):.6f}s')
+        return result
+    return wrapper
 
 def count_levels(file_path):
     return file_path.count('/')
@@ -46,18 +59,25 @@ def load_data(file_path, max_level, delimiter=','):
     return index_df
 
 
+@timer_func
 def main():
     with open('config.json') as config_file:
         config = json.load(config_file)
         old_file_path = config["file_path"]["old_file_path"]
         new_file_path = config["file_path"]["new_file_path"]
-        max_level, error_raise_count = process_list_files(old_file_path, new_file_path)
-        index_df = load_data(new_file_path, max_level)
-        current_datetime = pd.Timestamp.now()
 
+        max_level, error_raise_count = process_list_files(old_file_path, new_file_path)
+        print("Lines ignored: ", error_raise_count)
+
+        current_datetime = pd.Timestamp.now()
         years_ago = current_datetime - pd.Timedelta(days=365*config["analysis_parameter"]["years"])
         levels = config["analysis_parameter"]["levels"]
         gb_threshold = config["analysis_parameter"]["gb_threshold"]
+
+        nslots = int(os.getenv("NSLOTS"))
+
+        index_df = load_data(new_file_path, max_level)
+        # TODO add multiprocess
         final_df = analyze_data(index_df, levels, gb_threshold, years_ago)
         final_df.to_csv("final_df.csv")
 
