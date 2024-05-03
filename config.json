@@ -1,7 +1,7 @@
 {
     "file_path": {
-        "old_file_path": "/projectnb/scv/atime/rprojectnb_cadre.list",
-        "new_file_path": "/projectnb/scv/saladenh/project_jungle/output/rprojectnb_cadre_pp.list"
+        "input_file_dir": "/Users/chuningshi/Desktop",
+        "output_file_dir": "/Users/chuningshi/Desktop"
     },
     "analysis_parameter": {
         "years": 5,

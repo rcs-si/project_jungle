@@ -1,5 +1,7 @@
+import argparse
 import csv
 import json
+from pathlib import Path
 import pandas as pd
 import os
 from analyze import analyze_data
@@ -21,7 +23,8 @@ def count_levels(file_path):
 
 def process_list_files(input_filepath, output_filepath):
     max_level = 0
-    error_raise_count = 0
+    index_error_raise_count = 0
+    other_error = 0
     with open(input_filepath, 'r') as infile:
         with open(output_filepath, 'w') as outfile:
             writer = csv.writer(outfile)
@@ -39,8 +42,11 @@ def process_list_files(input_filepath, output_filepath):
                     full_pathname = split_line[11]
                     writer.writerow([owner, size_in_bytes, size_in_kb, access_time, full_pathname])
             except UnicodeDecodeError:
-                error_raise_count += 1
-    return max_level, error_raise_count
+                index_error_raise_count += 1
+            except Exception as e:
+                other_error += 1
+
+    return max_level, index_error_raise_count, other_error
 
 def load_data(file_path, max_level, delimiter=','):
     df = pd.read_csv(file_path, delimiter=delimiter, header=None)
@@ -61,24 +67,37 @@ def load_data(file_path, max_level, delimiter=','):
 
 @timer_func
 def main():
+    parser = argparse.ArgumentParser(description='take input file')
+    parser.add_argument("-f", "--file")
+    args = parser.parse_args()
     with open('config.json') as config_file:
         config = json.load(config_file)
-        old_file_path = config["file_path"]["old_file_path"]
-        new_file_path = config["file_path"]["new_file_path"]
-
-        max_level, error_raise_count = process_list_files(old_file_path, new_file_path)
-        print("Lines ignored: ", error_raise_count)
+        old_file_dir = config["file_path"]["input_file_dir"]
+        new_file_dir = config["file_path"]["output_file_dir"]
+        file_path = Path(old_file_dir + '/' + args.file)
+        if not file_path.exists():
+            print(file_path)
+            print("The target file doesn't exist")
+            raise SystemExit(1)
+    
+    
+        max_level, index_error_raise_count, other_error = process_list_files(old_file_dir + '/' + args.file, new_file_dir + "/new_" + args.file)
+        print("Index error raised: ", index_error_raise_count)
+        print("Other error raised: ", other_error)
+        print("-------------------- Finished preprocessing --------------------")
 
         current_datetime = pd.Timestamp.now()
         years_ago = current_datetime - pd.Timedelta(days=365*config["analysis_parameter"]["years"])
         levels = config["analysis_parameter"]["levels"]
         gb_threshold = config["analysis_parameter"]["gb_threshold"]
 
-        nslots = int(os.getenv("NSLOTS"))
+        #nslots = int(os.getenv("NSLOTS"))
 
-        index_df = load_data(new_file_path, max_level)
+        index_df = load_data(new_file_dir + "/new_" + args.file, max_level)
+        print("-------------------- Finished loading data --------------------")
         # TODO add multiprocess
         final_df = analyze_data(index_df, levels, gb_threshold, years_ago)
+        print("-------------------- Finished analyzing data --------------------")
         final_df.to_csv("final_df.csv")
 
 if __name__ == "__main__":
