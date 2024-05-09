@@ -1,13 +1,11 @@
 import argparse
 import csv
 import json
-from pathlib import Path
-import pandas as pd
 import os
+import pandas as pd
+import plotly.express as px
 from analyze import analyze_data
 from timeit import default_timer as timer
-
-from multiprocessing import Pool
 
 def timer_func(func):
     def wrapper(*args, **kwargs):
@@ -67,21 +65,39 @@ def load_data(file_path, max_level, delimiter=','):
 
 @timer_func
 def main():
-    parser = argparse.ArgumentParser(description='take input file')
-    parser.add_argument("-f", "--file")
+    parser = argparse.ArgumentParser(prog="Project Jungle",
+                                     description="Analyze project directories")
+    parser.add_argument("-f", "--file", help="Input file to analyze")
+    parser.add_argument("-o", "--output", help="Output directory")
     args = parser.parse_args()
+
     with open('config.json') as config_file:
         config = json.load(config_file)
-        old_file_dir = config["file_path"]["input_file_dir"]
-        new_file_dir = config["file_path"]["output_file_dir"]
-        file_path = Path(old_file_dir + '/' + args.file)
-        if not file_path.exists():
-            print(file_path)
-            print("The target file doesn't exist")
+
+        input_filepath = args.file
+        file = args.file.split("/")[-1]
+        filename = file.split(".")[0]
+
+        output_dir = args.output
+        pp_dir = output_dir + "/pp/"
+        analysis_dir = output_dir + "/analysis/"
+        vis_dir = output_dir + "/viz/"
+
+        if not os.path.exists(pp_dir):
+            os.makedirs(pp_dir)
+        
+        if not os.path.exists(analysis_dir):
+            os.makedirs(analysis_dir)
+
+        if not os.path.exists(vis_dir):
+            os.makedirs(vis_dir)
+
+        if not os.path.exists(input_filepath):
+            print(input_filepath)
+            print("The input filepath doesn't exist")
             raise SystemExit(1)
     
-    
-        max_level, index_error_raise_count, other_error = process_list_files(old_file_dir + '/' + args.file, new_file_dir + "/new_" + args.file)
+        max_level, index_error_raise_count, other_error = process_list_files(input_filepath, pp_dir + file)
         print("Index error raised: ", index_error_raise_count)
         print("Other error raised: ", other_error)
         print("-------------------- Finished preprocessing --------------------")
@@ -91,14 +107,28 @@ def main():
         levels = config["analysis_parameter"]["levels"]
         gb_threshold = config["analysis_parameter"]["gb_threshold"]
 
-        #nslots = int(os.getenv("NSLOTS"))
-
-        index_df = load_data(new_file_dir + "/new_" + args.file, max_level)
+        index_df = load_data(pp_dir + file, max_level)
         print("-------------------- Finished loading data --------------------")
-        # TODO add multiprocess
+
         final_df = analyze_data(index_df, levels, gb_threshold, years_ago)
         print("-------------------- Finished analyzing data --------------------")
-        final_df.to_csv("final_df.csv")
+        analysis_filepath = analysis_dir + filename + ".csv"
+        final_df.to_csv(analysis_filepath)
+
+        ### Fix the visualizations
+        vis_df = final_df.copy()
+        vis_df.reset_index(inplace=True)
+        vis_df.fillna("NA", inplace=True)
+        vis_df["year"] = vis_df["access_datetime"].dt.year
+
+        fig = px.treemap(vis_df, 
+                         path=vis_df.columns[2:levels], 
+                         values='size_in_gb', 
+                         color='year', 
+                         color_continuous_scale='RdBu', 
+                         range_color=[2012, 2024])
+        fig.update_traces(hovertemplate='labels=%{label}<br>size_in_gb=%{value:.1f}<br>parent=%{parent}<br>id=%{id}<br>year=%{color:4i}<extra></extra>')
+        fig.write_html(vis_dir + filename + ".html")
 
 if __name__ == "__main__":
     main()
