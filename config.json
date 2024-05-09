@@ -1,8 +1,4 @@
 {
-    "file_path": {
-        "input_file_dir": "/Users/chuningshi/Desktop",
-        "output_file_dir": "/Users/chuningshi/Desktop"
-    },
     "analysis_parameter": {
         "years": 5,
         "levels": 10,
