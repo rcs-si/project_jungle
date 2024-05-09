@@ -120,6 +120,7 @@ def main():
         vis_df.reset_index(inplace=True)
         vis_df.fillna("NA", inplace=True)
         vis_df["year"] = vis_df["access_datetime"].dt.year
+        vis_df["size_in_gb"] = vis_df["size_in_gb"].apply(lambda x: x + 1e-9)
 
         fig = px.treemap(vis_df, 
                          path=vis_df.columns[2:levels], 
