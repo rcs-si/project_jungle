@@ -1,8 +1,4 @@
 {
-    "file_path": {
-        "old_file_path": "/projectnb/scv/atime/rprojectnb_cadre.list",
-        "new_file_path": "/projectnb/scv/saladenh/project_jungle/output/rprojectnb_cadre_pp.list"
-    },
     "analysis_parameter": {
         "years": 5,
         "levels": 10,
