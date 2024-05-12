@@ -1,11 +1,11 @@
+import argparse
 import csv
 import json
-import pandas as pd
 import os
+import pandas as pd
+import plotly.express as px
 from analyze import analyze_data
 from timeit import default_timer as timer
-
-from multiprocessing import Pool
 
 def timer_func(func):
     def wrapper(*args, **kwargs):
@@ -21,7 +21,8 @@ def count_levels(file_path):
 
 def process_list_files(input_filepath, output_filepath):
     max_level = 0
-    error_raise_count = 0
+    index_error_raise_count = 0
+    other_error = 0
     with open(input_filepath, 'r') as infile:
         with open(output_filepath, 'w') as outfile:
             writer = csv.writer(outfile)
@@ -39,8 +40,11 @@ def process_list_files(input_filepath, output_filepath):
                     full_pathname = split_line[11]
                     writer.writerow([owner, size_in_bytes, size_in_kb, access_time, full_pathname])
             except UnicodeDecodeError:
-                error_raise_count += 1
-    return max_level, error_raise_count
+                index_error_raise_count += 1
+            except Exception as e:
+                other_error += 1
+
+    return max_level, index_error_raise_count, other_error
 
 def load_data(file_path, max_level, delimiter=','):
     df = pd.read_csv(file_path, delimiter=delimiter, header=None)
@@ -61,25 +65,71 @@ def load_data(file_path, max_level, delimiter=','):
 
 @timer_func
 def main():
+    parser = argparse.ArgumentParser(prog="Project Jungle",
+                                     description="Analyze project directories")
+    parser.add_argument("-f", "--file", help="Input file to analyze")
+    parser.add_argument("-o", "--output", help="Output directory")
+    args = parser.parse_args()
+
     with open('config.json') as config_file:
         config = json.load(config_file)
-        old_file_path = config["file_path"]["old_file_path"]
-        new_file_path = config["file_path"]["new_file_path"]
 
-        max_level, error_raise_count = process_list_files(old_file_path, new_file_path)
-        print("Lines ignored: ", error_raise_count)
+        input_filepath = args.file
+        file = args.file.split("/")[-1]
+        filename = file.split(".")[0]
+
+        output_dir = args.output
+        pp_dir = output_dir + "/pp/"
+        analysis_dir = output_dir + "/analysis/"
+        vis_dir = output_dir + "/viz/"
+
+        if not os.path.exists(pp_dir):
+            os.makedirs(pp_dir)
+        
+        if not os.path.exists(analysis_dir):
+            os.makedirs(analysis_dir)
+
+        if not os.path.exists(vis_dir):
+            os.makedirs(vis_dir)
+
+        if not os.path.exists(input_filepath):
+            print(input_filepath)
+            print("The input filepath doesn't exist")
+            raise SystemExit(1)
+    
+        max_level, index_error_raise_count, other_error = process_list_files(input_filepath, pp_dir + file)
+        print("Index error raised: ", index_error_raise_count)
+        print("Other error raised: ", other_error)
+        print("-------------------- Finished preprocessing --------------------")
 
         current_datetime = pd.Timestamp.now()
         years_ago = current_datetime - pd.Timedelta(days=365*config["analysis_parameter"]["years"])
         levels = config["analysis_parameter"]["levels"]
         gb_threshold = config["analysis_parameter"]["gb_threshold"]
 
-        nslots = int(os.getenv("NSLOTS"))
+        index_df = load_data(pp_dir + file, max_level)
+        print("-------------------- Finished loading data --------------------")
 
-        index_df = load_data(new_file_path, max_level)
-        # TODO add multiprocess
         final_df = analyze_data(index_df, levels, gb_threshold, years_ago)
-        final_df.to_csv("final_df.csv")
+        print("-------------------- Finished analyzing data --------------------")
+        analysis_filepath = analysis_dir + filename + ".csv"
+        final_df.to_csv(analysis_filepath)
+
+        ### Fix the visualizations
+        vis_df = final_df.copy()
+        vis_df.reset_index(inplace=True)
+        vis_df.fillna("NA", inplace=True)
+        vis_df["year"] = vis_df["access_datetime"].dt.year
+        vis_df["size_in_gb"] = vis_df["size_in_gb"].apply(lambda x: x + 1e-9)
+
+        fig = px.treemap(vis_df, 
+                         path=vis_df.columns[2:levels], 
+                         values='size_in_gb', 
+                         color='year', 
+                         color_continuous_scale='RdBu', 
+                         range_color=[2012, 2024])
+        fig.update_traces(hovertemplate='labels=%{label}<br>size_in_gb=%{value:.1f}<br>parent=%{parent}<br>id=%{id}<br>year=%{color:4i}<extra></extra>')
+        fig.write_html(vis_dir + filename + ".html")
 
 if __name__ == "__main__":
     main()
