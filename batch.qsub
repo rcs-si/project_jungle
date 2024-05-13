@@ -1,0 +1,19 @@
+#/bin/bash -l
+
+#$ -P scv
+#$ -pe omp 4
+#$ -l h_rt=12:00:00
+#$ -m bea
+# the number of tasks should be changed to match number of list files in directory
+#$ -t 1-3
+
+
+inputs=($(ls /projectnb/scv/atime/*.list))
+
+module load python3/3.10.12
+
+cd /projectnb/scv/saladenh/project_jungle/
+taskinput=${inputs[$(($SGE_TASK_ID-1))]}
+
+# Need to create output directory and change the path to output
+python main.py -f $taskinput -o /path/to/output
