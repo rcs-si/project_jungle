@@ -1,2 +1,9 @@
 __pycache__
+.ipynb_checkpoints
 *.csv
+.DS_Store
+output
+*.o*
+*.e*
+*.pe*
+*.po*

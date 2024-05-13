@@ -1,4 +1,7 @@
 {
-    "old_file_path": "//Users/chuningshi/Desktop/projectnb_econdept.list",
-    "new_file_path": "/Users/chuningshi/Desktop/pp_results.list"
+    "analysis_parameter": {
+        "years": 5,
+        "levels": 10,
+        "gb_threshold": 10
+    }
 }
