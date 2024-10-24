@@ -8,3 +8,4 @@ output
 *.pe*
 *.po*
 data/
+project_jungle/visualization/visualization_old.ipynb
