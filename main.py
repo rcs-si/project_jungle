@@ -140,8 +140,16 @@ import argparse
 import csv
 import json
 import os
+import shutil
+
+# Suppress annoying Dask messages
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 import dask.bag as db
 import dask.dataframe as dd
+from dask.distributed import Client
+
 import pandas as pd
 import plotly.express as px
 from analyze import analyze_data
@@ -157,32 +165,67 @@ def timer_func(func):
         return result
     return wrapper
 
-def count_levels(file_path):
-    return file_path.count('/')
+@timer_func
+def generate_pp_csv(index_df, pp_dir, filename_ext):
+    ''' Write out the CSV files separately. For each chunk of the dataframe
+    they will be written into the directory pp_dir/filename_ext/ like
+        
+        000.part   001.part  002.part  etc.
+    
+    Only 000.part contains the header row.
+    
+    TODO: after writing the files out in parallel concatenate them together.
+       See the top answer using shutil.copyfileobj here:
+         https://stackoverflow.com/questions/67779927/how-to-concatenate-a-large-number-of-text-files-in-python
+    and implement something similar here to write out pp_dir/filename_ext.csv 
+    Don't forget to delete the directory containing the separate files after.
+    As a bonus, use tqdm to show a progress bar. This is faster than having Dask build the single
+    CSV output file using the single_file=True flag.'''
+    # Write out the CSVs in parallel. This is VERY fast.
+    index_df[['owner', 'size_in_bytes', 'size_in_kb', 'access_time', 'full_pathname','levels']].\
+        to_csv(pp_dir + filename_ext, single_file=False, index=False, header_first_partition_only=None)
+    # IMPLEMENT HERE.
 
-def process_list_files(input_filepath, output_filepath):
+@timer_func
+def process_list_files(input_filepath, n_workers):
     def process_line(line):
+        # line has the format:
+        # ["string with data space separated","full pathname"]
+        if len(line) != 2:
+            #print(f'EXCEPTION: {line}')
+            return '', 0, 0, 0, '', 0
         try:
-            strip_line = line.strip()
-            split_line = strip_line.split(maxsplit=11)
-            pathname = split_line[-1]
-            levels = count_levels(pathname)
+            # Process most of the line
+            split_line = line[0].split()
             owner = split_line[4]
             size_in_bytes = split_line[6]
             size_in_kb = split_line[7]
             access_time = split_line[8]
-            full_pathname = split_line[11]
+            # And now the filepath
+            full_pathname = line[1]
+            levels = full_pathname.count('/')
             return owner, size_in_bytes, size_in_kb, access_time, full_pathname, levels
         except (UnicodeDecodeError, IndexError):
-            return None
-        except Exception as e:
-            return None
+            return '', 0, 0, 0, '', 0
+        except Exception:
+            return '', 0, 0, 0, '', 0
 
-    bag = db.read_text(input_filepath).map(process_line).filter(lambda x: x)
-    df = bag.to_dataframe(meta={'owner': str, 'size_in_bytes': int, 'size_in_kb': int, 'access_time': str, 'full_pathname': str, 'levels': int})
-    df.to_csv(output_filepath, single_file=True, index=False)
+    # Use the Bag built-in strip and split functions. The split on ' -- ' will return
+    # a tuple: (most of the line, full path)
+    bag = db.read_text(input_filepath, encoding='utf-8',errors='backslashreplace', blocksize='32M').\
+                       str.strip().str.split(' -- ')
+    # Re-work each line into a tuple, and remove any lines that did not 
+    # decode correctly.
+    bag = bag.map(process_line).filter(lambda x: len(x[0]) > 0)
+    # Convert to a dataframe
+    df = bag.to_dataframe(meta={'owner': str, 'size_in_bytes': int, 'size_in_kb': int, 
+                                'access_time': str, 'full_pathname': str, 'levels': int})
+    # Now add extra columns.
+    df['size_in_gb'] = df['size_in_bytes'].astype(float) / 1e9
+    df['access_datetime'] = dd.to_datetime(df['access_time'], unit='s', origin='unix')
     return df
-
+ 
+    
 @timer_func
 def main():
     parser = argparse.ArgumentParser(prog="Project Jungle",
@@ -191,72 +234,103 @@ def main():
     parser.add_argument("-o", "--output", help="Output directory")
     args = parser.parse_args()
 
+
+    n_cores =int( os.environ.get('NSLOTS',1))
+    # Leave 1 core for the main Python process.
+    n_cores = max(1, n_cores - 1)
+    client = Client(n_workers=n_cores, processes=True)
+    print(f'Client dashboard: { client.dashboard_link }')
+    
+    # Read the config file.
     with open('config.json') as config_file:
         config = json.load(config_file)
 
-        input_filepath = args.file
-        file = args.file.split("/")[-1]
-        filename = file.split(".")[0]
+    input_filepath = args.file
+    filename_ext = args.file.split("/")[-1]
+    filename = filename_ext.split(".")[0]
 
-        output_dir = args.output
-        pp_dir = output_dir + "/pp/"
-        analysis_dir = output_dir + "/analysis/"
-        vis_dir = output_dir + "/viz/"
+    output_dir = args.output
+    pp_dir = output_dir + "/pp/"
+    analysis_dir = output_dir + "/analysis/"
+    vis_dir = output_dir + "/viz/"
 
-        if not os.path.exists(pp_dir):
-            os.makedirs(pp_dir)
-        
-        if not os.path.exists(analysis_dir):
-            os.makedirs(analysis_dir)
-
-        if not os.path.exists(vis_dir):
-            os.makedirs(vis_dir)
-
-        if not os.path.exists(input_filepath):
-            print(input_filepath)
-            print("The input filepath doesn't exist")
-            raise SystemExit(1)
+    if not os.path.exists(pp_dir):
+        os.makedirs(pp_dir)
     
-        df = process_list_files(input_filepath, pp_dir + file)
-        print("-------------------- Finished preprocessing --------------------")
+    if not os.path.exists(analysis_dir):
+        os.makedirs(analysis_dir)
 
-        current_datetime = pd.Timestamp.now()
-        years_ago = current_datetime - pd.Timedelta(days=365*config["analysis_parameter"]["years"])
-        levels = config["analysis_parameter"]["levels"]
-        gb_threshold = config["analysis_parameter"]["gb_threshold"]
+    if not os.path.exists(vis_dir):
+        os.makedirs(vis_dir)
 
-        index_df = dd.read_csv(pp_dir + file)
-        index_df['size_in_gb'] = index_df['size_in_bytes'].astype(float) / 1e9
-        index_df['access_datetime'] = dd.to_datetime(index_df['access_time'], unit='s', origin='unix')
+    if not os.path.exists(input_filepath):
+        print(input_filepath)
+        print("The input filepath doesn't exist")
+        raise SystemExit(1)
 
-        # Split the full pathname into levels
-        split_path = index_df['full_pathname'].str.split('/', expand=True).iloc[:, 1:]
-        index_df = dd.concat([split_path, index_df], axis=1)
-        index_df = index_df.set_index(index_df.columns[:levels].tolist())
+    index_df = process_list_files(input_filepath, n_cores)
+    print("-------------------- Finished preprocessing --------------------")
 
-        print("-------------------- Finished loading data --------------------")
+    current_datetime = pd.Timestamp.now()
+    years_ago = current_datetime - pd.Timedelta(days=365*config["analysis_parameter"]["years"])
+    levels = config["analysis_parameter"]["levels"]
+    gb_threshold = config["analysis_parameter"]["gb_threshold"]
+     
+    # We don't want to re-read "df" from the CSV file.
+    #index_df = dd.read_csv(pp_dir + file)
+    # Convert index_df to a pandas dataframe for now.
+    # the analyze_data() function requires a multi-level index and will have to 
+    # be re-written to properly work with a Dask dataframe.
+    # Write out the CSV with some of the columns.
+    # We might want to persist the df.
+    index_df = index_df.persist()
+    
+    generate_pp_csv(index_df)
+ 
+    # The Dask split function needs to be told the total number of columns
+    # when expand = True. Compute the right number. This is fast to compute
+    # because the dataframe was persisted just before the write_csv.
+    n_dirs = index_df['levels'].max().compute()
+    split_path = index_df['full_pathname'].str.split('/', expand=True,n=n_dirs).iloc[:, 1:]
+    # Now concat that with index_df.
+    index_df = dd.concat([split_path, index_df], axis=1)
 
-        final_df = analyze_data(index_df.compute(), levels, gb_threshold, years_ago)
-        print("-------------------- Finished analyzing data --------------------")
-        analysis_filepath = analysis_dir + filename + ".csv"
-        final_df.to_csv(analysis_filepath, index=False)
+    print("-------------------- Finished loading data --------------------")
 
-        ### Visualization
-        vis_df = final_df.copy()
-        vis_df.reset_index(inplace=True)
-        vis_df.fillna("NA", inplace=True)
-        vis_df["year_category"] = pd.cut(vis_df["access_datetime"].dt.year, 
-                                          bins=[-float('inf'), current_datetime.year - 10, current_datetime.year - 5, current_datetime.year],
-                                          labels=["Older than 10 years", "Older than 5 years", "Less than 5 years"])
-        vis_df["size_in_gb"] = vis_df["size_in_gb"].apply(lambda x: x + 1e-9)
+    # TODO:  Re-work analyze_data so it doesn't use Dask multi-indexes for its
+    # group_by(). Should be reasonably straightforward.
+    
+    index_df = analyze_data(index_df, levels, gb_threshold, years_ago)
+    print("-------------------- Finished analyzing data --------------------")
+    analysis_filepath = analysis_dir + filename + ".csv"
+    # TODO: use a similar strategy as in generate_pp_csv
+    index_df.to_csv(analysis_filepath, single_file=True, index=False)
 
-        fig = px.treemap(vis_df, 
-                         path=vis_df.columns[2:levels], 
-                         values='size_in_gb', 
-                         color='year_category', 
-                         color_discrete_sequence=px.colors.qualitative.Set1)
-        fig.update_traces(hovertemplate='labels=%{label}<br>size_in_gb=%{value:.1f}<br>parent=%{parent}<br>id=%{id}<br>year_category=%{color}<extra></extra>')
-        fig.write_html(vis_dir + filename + ".html")
+    ### Visualization
+    # Why is this copied?! There's no need!
+    # However, px.treemap() will almost certainly need a Pandas df as the input.
+    # If one won't compute for whatever reason write out the Dask df to parquet
+    # format and then import it back as a pandas df as parquet is way faster than
+    # csv.
+    vis_df = index_df.copy()
+    vis_df.reset_index(inplace=True)
+    vis_df.fillna("NA", inplace=True)
+    vis_df["year_category"] = pd.cut(vis_df["access_datetime"].dt.year, 
+                                      bins=[-float('inf'), current_datetime.year - 10, current_datetime.year - 5, current_datetime.year],
+                                      labels=["Older than 10 years", "Older than 5 years", "Less than 5 years"])
+    vis_df["size_in_gb"] = vis_df["size_in_gb"].apply(lambda x: x + 1e-9)
+
+    fig = px.treemap(vis_df, 
+                     path=vis_df.columns[2:levels], 
+                     values='size_in_gb', 
+                     color='year_category', 
+                     color_discrete_sequence=px.colors.qualitative.Set1)
+    fig.update_traces(hovertemplate='labels=%{label}<br>size_in_gb=%{value:.1f}<br>parent=%{parent}<br>id=%{id}<br>year_category=%{color}<extra></extra>')
+    fig.write_html(vis_dir + filename + ".html")
+    
+    # ok to shut down Dask 
+    client.shutdown()
+    client.close()
 
 if __name__ == "__main__":
     main()
