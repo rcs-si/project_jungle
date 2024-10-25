@@ -166,9 +166,13 @@ def timer_func(func):
     return wrapper
 
 @timer_func
-def generate_pp_csv(index_df, pp_dir, filename_ext):
-    ''' Write out the CSV files separately. For each chunk of the dataframe
-    they will be written into the directory pp_dir/filename_ext/ like
+def concatenate_parts(parts_dir, filename_ext, remove_dir=True):
+    ''' Find all of the files in parts_dir, concatenate them
+    to the file (with path) filename_ext. Optionally remove the
+    parts_dir at the end. 
+    
+    The Dask dataframe writes out the CSV as parts with names 
+    like so:
         
         000.part   001.part  002.part  etc.
     
@@ -179,12 +183,9 @@ def generate_pp_csv(index_df, pp_dir, filename_ext):
          https://stackoverflow.com/questions/67779927/how-to-concatenate-a-large-number-of-text-files-in-python
     and implement something similar here to write out pp_dir/filename_ext.csv 
     Don't forget to delete the directory containing the separate files after.
-    As a bonus, use tqdm to show a progress bar. This is faster than having Dask build the single
-    CSV output file using the single_file=True flag.'''
-    # Write out the CSVs in parallel. This is VERY fast.
-    index_df[['owner', 'size_in_bytes', 'size_in_kb', 'access_time', 'full_pathname','levels']].\
-        to_csv(pp_dir + filename_ext, single_file=False, index=False, header_first_partition_only=None)
-    # IMPLEMENT HERE.
+    As a bonus, use tqdm to show a progress bar. '''
+    pass
+ 
 
 @timer_func
 def process_list_files(input_filepath, n_workers):
@@ -284,8 +285,14 @@ def main():
     # Write out the CSV with some of the columns.
     # We might want to persist the df.
     index_df = index_df.persist()
+    # Write out the CSVs in parallel. This is VERY fast.
+    index_df[['owner', 'size_in_bytes', 'size_in_kb', 'access_time', 'full_pathname','levels']].\
+        to_csv(os.path.join(pp_dir,filename_ext), single_file=False, 
+        index=False, header_first_partition_only=True)
     
-    generate_pp_csv(index_df)
+    # Combine the parts into 1 CSV
+    concatenate_parts(os.path.join(pp_dir,filename_ext),
+                      os.path.join(pp_dir,filename_ext) + '.csv')
  
     # The Dask split function needs to be told the total number of columns
     # when expand = True. Compute the right number. This is fast to compute
@@ -303,8 +310,8 @@ def main():
     index_df = analyze_data(index_df, levels, gb_threshold, years_ago)
     print("-------------------- Finished analyzing data --------------------")
     analysis_filepath = analysis_dir + filename + ".csv"
-    # TODO: use a similar strategy as in generate_pp_csv
-    index_df.to_csv(analysis_filepath, single_file=True, index=False)
+    # TODO: use a similar strategy as before
+    index_df.to_csv(analysis_filepath, single_file=False, index=False)
 
     ### Visualization
     # Why is this copied?! There's no need!
