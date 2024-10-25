@@ -17,3 +17,5 @@ taskinput=${inputs[$(($SGE_TASK_ID-1))]}
 
 # Need to create output directory and change the path to output
 python main.py -f $taskinput -o /path/to/output
+
+
