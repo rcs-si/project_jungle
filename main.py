@@ -26,8 +26,8 @@ def process_list_files(input_filepath, output_filepath):
     with open(input_filepath, 'r') as infile:
         with open(output_filepath, 'w') as outfile:
             writer = csv.writer(outfile)
-            try:
-                for i, line in enumerate(infile):
+            for i, line in enumerate(infile):
+                try:
                     strip_line = line.strip()
                     split_line = strip_line.split(maxsplit=11)
                     pathname = split_line[-1]
@@ -39,11 +39,10 @@ def process_list_files(input_filepath, output_filepath):
                     access_time = split_line[8]
                     full_pathname = split_line[11]
                     writer.writerow([owner, size_in_bytes, size_in_kb, access_time, full_pathname])
-            except UnicodeDecodeError:
-                index_error_raise_count += 1
-            except Exception as e:
-                other_error += 1
-
+                except UnicodeDecodeError:
+                    index_error_raise_count += 1
+                except Exception as e:
+                    other_error += 1
     return max_level, index_error_raise_count, other_error
 
 def load_data(file_path, max_level, delimiter=','):
