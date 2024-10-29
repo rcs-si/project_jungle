@@ -137,10 +137,11 @@
 
 ### main.py
 import argparse
-import csv
 import json
 import os
 import shutil
+import glob
+
 
 # Suppress annoying Dask messages
 import warnings
@@ -152,7 +153,7 @@ from dask.distributed import Client
 
 import pandas as pd
 import plotly.express as px
-from analyze import analyze_data
+from analyze import analyze_data_new, path_extract
 from timeit import default_timer as timer
 from tqdm import tqdm
 
@@ -166,9 +167,9 @@ def timer_func(func):
     return wrapper
 
 @timer_func
-def concatenate_parts(parts_dir, filename_ext, remove_dir=True):
+def concatenate_parts(parts_dir, ofile, remove_dir=True):
     ''' Find all of the files in parts_dir, concatenate them
-    to the file (with path) filename_ext. Optionally remove the
+    to the file ofile. Optionally remove the
     parts_dir at the end. 
     
     The Dask dataframe writes out the CSV as parts with names 
@@ -176,16 +177,21 @@ def concatenate_parts(parts_dir, filename_ext, remove_dir=True):
         
         000.part   001.part  002.part  etc.
     
-    Only 000.part contains the header row.
-    
-    TODO: after writing the files out in parallel concatenate them together.
-       See the top answer using shutil.copyfileobj here:
-         https://stackoverflow.com/questions/67779927/how-to-concatenate-a-large-number-of-text-files-in-python
-    and implement something similar here to write out pp_dir/filename_ext.csv 
-    Don't forget to delete the directory containing the separate files after.
-    As a bonus, use tqdm to show a progress bar. '''
-    pass
- 
+    Only 000.part contains the header row. '''
+    try:
+        # Sort just to make sure that the 000.part gets handled first.
+        filenames = sorted(glob.glob(os.path.join(parts_dir, "*.part")))
+        with open(ofile, "wb") as outfile:
+            for filename in tqdm(filenames, desc=f'Concatenating parts into {ofile}'):
+                with open(filename, "rb") as infile:
+                    shutil.copyfileobj(infile, outfile)
+        if remove_dir:
+            shutil.rmtree(parts_dir)
+    except Exception as e:
+        print('***** Failed to concatenate file parts into a single file.')
+        print(f'Directory: {parts_dir}')
+        print(f'CSV file: {ofile}')
+        print(f'{e}')
 
 @timer_func
 def process_list_files(input_filepath, n_workers):
@@ -226,6 +232,27 @@ def process_list_files(input_filepath, n_workers):
     df['access_datetime'] = dd.to_datetime(df['access_time'], unit='s', origin='unix')
     return df
  
+   
+@timer_func
+def setup_vis_df(df, min_level, max_level, current_datetime):
+    ''' Add columns to the df that correspond to the levels in the paths.
+       Then convert it to Pandas, do a little processing, and return. '''
+    # Make columns for each path depth for use with the path=
+    # argument in treemap.
+    cols = list(range(min_level, max_level + 1))
+    for col in cols:
+        df[str(col)] = df['levels_pathname'].apply(path_extract, args=(col,True),  meta=('levels_pathname', 'str'))
+    # Done, now convert to pandas.
+    vis_df = df.compute()
+    
+    vis_df.reset_index(inplace=True)
+   # vis_df.fillna("NA", inplace=True)
+    vis_df["year_category"] = pd.cut(vis_df["access_datetime"].dt.year, 
+                                      bins=[-float('inf'), current_datetime.year - 10, current_datetime.year - 5, current_datetime.year],
+                                      labels=["Older than 10 years", "Older than 5 years", "Less than 5 years"])
+    vis_df["size_in_gb"] = vis_df["size_in_gb"].apply(lambda x: x + 1e-9)
+    return vis_df
+    
     
 @timer_func
 def main():
@@ -234,13 +261,6 @@ def main():
     parser.add_argument("-f", "--file", help="Input file to analyze")
     parser.add_argument("-o", "--output", help="Output directory")
     args = parser.parse_args()
-
-
-    n_cores =int( os.environ.get('NSLOTS',1))
-    # Leave 1 core for the main Python process.
-    n_cores = max(1, n_cores - 1)
-    client = Client(n_workers=n_cores, processes=True)
-    print(f'Client dashboard: { client.dashboard_link }')
     
     # Read the config file.
     with open('config.json') as config_file:
@@ -270,20 +290,13 @@ def main():
         raise SystemExit(1)
 
     index_df = process_list_files(input_filepath, n_cores)
-    print("-------------------- Finished preprocessing --------------------")
 
     current_datetime = pd.Timestamp.now()
     years_ago = current_datetime - pd.Timedelta(days=365*config["analysis_parameter"]["years"])
     levels = config["analysis_parameter"]["levels"]
     gb_threshold = config["analysis_parameter"]["gb_threshold"]
      
-    # We don't want to re-read "df" from the CSV file.
-    #index_df = dd.read_csv(pp_dir + file)
-    # Convert index_df to a pandas dataframe for now.
-    # the analyze_data() function requires a multi-level index and will have to 
-    # be re-written to properly work with a Dask dataframe.
-    # Write out the CSV with some of the columns.
-    # We might want to persist the df.
+    # Persist the df to avoid re-loading it from disk.
     index_df = index_df.persist()
     # Write out the CSVs in parallel. This is VERY fast.
     index_df[['owner', 'size_in_bytes', 'size_in_kb', 'access_time', 'full_pathname','levels']].\
@@ -293,51 +306,56 @@ def main():
     # Combine the parts into 1 CSV
     concatenate_parts(os.path.join(pp_dir,filename_ext),
                       os.path.join(pp_dir,filename_ext) + '.csv')
- 
-    # The Dask split function needs to be told the total number of columns
-    # when expand = True. Compute the right number. This is fast to compute
-    # because the dataframe was persisted just before the write_csv.
-    n_dirs = index_df['levels'].max().compute()
-    split_path = index_df['full_pathname'].str.split('/', expand=True,n=n_dirs).iloc[:, 1:]
-    # Now concat that with index_df.
-    index_df = dd.concat([split_path, index_df], axis=1)
 
-    print("-------------------- Finished loading data --------------------")
+    print("-------------------- Finished preprocessing --------------------")
 
-    # TODO:  Re-work analyze_data so it doesn't use Dask multi-indexes for its
-    # group_by(). Should be reasonably straightforward.
-    
-    index_df = analyze_data(index_df, levels, gb_threshold, years_ago)
-    print("-------------------- Finished analyzing data --------------------")
+    max_levels = index_df['levels'].max().compute()
+    if levels > max_levels:
+        levels = max_levels
+    index_df= analyze_data_new(index_df, levels, gb_threshold, years_ago)
     analysis_filepath = analysis_dir + filename + ".csv"
-    # TODO: use a similar strategy as before
-    index_df.to_csv(analysis_filepath, single_file=False, index=False)
+    index_df.to_csv(os.path.join(analysis_dir,'parts'), single_file=False, index=False)
+    # Combine the parts into 1 CSV
+    concatenate_parts(os.path.join(analysis_filepath,'parts'), analysis_filepath)
+    print("-------------------- Finished analyzing data --------------------")
 
     ### Visualization
-    # Why is this copied?! There's no need!
-    # However, px.treemap() will almost certainly need a Pandas df as the input.
-    # If one won't compute for whatever reason write out the Dask df to parquet
-    # format and then import it back as a pandas df as parquet is way faster than
-    # csv.
-    vis_df = index_df.copy()
-    vis_df.reset_index(inplace=True)
-    vis_df.fillna("NA", inplace=True)
-    vis_df["year_category"] = pd.cut(vis_df["access_datetime"].dt.year, 
-                                      bins=[-float('inf'), current_datetime.year - 10, current_datetime.year - 5, current_datetime.year],
-                                      labels=["Older than 10 years", "Older than 5 years", "Less than 5 years"])
-    vis_df["size_in_gb"] = vis_df["size_in_gb"].apply(lambda x: x + 1e-9)
-
+    
+    # Convert the Dask dataframe to a Pandas dataframe for visualization.
+    # 4 is the starting depth for directories in the analysis.
+    vis_df = setup_vis_df(index_df, 4, levels, current_datetime )
+    import pickle
+    with open('vis.pkl','wb') as f:
+        pickle.dump(vis_df, f)
     fig = px.treemap(vis_df, 
-                     path=vis_df.columns[2:levels], 
+                     path=[str(x) for x in range(4,levels+1)], #vis_df.columns[4:levels], 
                      values='size_in_gb', 
                      color='year_category', 
                      color_discrete_sequence=px.colors.qualitative.Set1)
     fig.update_traces(hovertemplate='labels=%{label}<br>size_in_gb=%{value:.1f}<br>parent=%{parent}<br>id=%{id}<br>year_category=%{color}<extra></extra>')
     fig.write_html(vis_dir + filename + ".html")
     
-    # ok to shut down Dask 
-    client.shutdown()
-    client.close()
+
+
+p='/gpfs4/projectnb/econdept/tklee/telecom/demand_estimation/output'
+path_extract(p, 8, False)
+path_extract(p, 10, True)
+path_extract(p, 9, True)
+path_extract(p, 8, True)
+path_extract(p, 7, True)
+path_extract(p, 7, True)
 
 if __name__ == "__main__":
-    main()
+    try: 
+        n_cores =int( os.environ.get('NSLOTS',1))
+        # Leave 1 core for the main Python process.
+        n_cores = max(1, n_cores - 1)
+        client = Client(n_workers=n_cores, processes=True)
+        print(f'Client dashboard: { client.dashboard_link }')
+        main()
+    finally:
+        # Make sure to shut down dask even in the event of failures.
+        client.shutdown()
+        client.close()
+        
+        
