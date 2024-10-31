@@ -1,139 +1,3 @@
-# import argparse
-# import csv
-# import json
-# import os
-# import pandas as pd
-# import plotly.express as px
-# from analyze import analyze_data
-# from timeit import default_timer as timer
-
-# def timer_func(func):
-#     def wrapper(*args, **kwargs):
-#         t1 = timer()
-#         result = func(*args, **kwargs)
-#         t2 = timer()
-#         print(f'{func.__name__}() executed in {(t2-t1):.6f}s')
-#         return result
-#     return wrapper
-
-# def count_levels(file_path):
-#     return file_path.count('/')
-
-# def process_list_files(input_filepath, output_filepath):
-#     max_level = 0
-#     index_error_raise_count = 0
-#     other_error = 0
-#     with open(input_filepath, 'r') as infile:
-#         with open(output_filepath, 'w') as outfile:
-#             writer = csv.writer(outfile)
-#             for i, line in tqdm.tqdm(enumerate(infile)):
-#                 try:
-#                     line_c += 1
-#                     strip_line = line.strip()
-#                     split_line = strip_line.split(maxsplit=11)
-#                     pathname = split_line[-1]
-#                     levels = count_levels(pathname)
-#                     max_level = max(max_level, levels)
-#                     owner = split_line[4]
-#                     size_in_bytes = split_line[6]
-#                     size_in_kb = split_line[7]
-#                     access_time = split_line[8]
-#                     full_pathname = split_line[11]
-#                     writer.writerow([owner, size_in_bytes, size_in_kb, access_time, full_pathname])
-#                 except UnicodeDecodeError:
-#                     index_error_raise_count += 1
-#                 except Exception as e:
-#                     other_error += 1
-#     return max_level, index_error_raise_count, other_error
-
-# def load_data(file_path, max_level, delimiter=','):
-#     df = pd.read_csv(file_path, delimiter=delimiter, header=None)
-#     df.columns = ['owner', 'size_in_bytes', 'size_in_kb', 'access_time', 'full_pathname']
-#     df['size_in_gb'] = df['size_in_bytes'] / 1e9
-
-#     # transfer access time to human readable format
-#     df['access_datetime'] = pd.to_datetime(df['access_time'], unit='s', origin='unix')
-#     df = df[['owner', 'size_in_gb', 'access_datetime', 'full_pathname']]
-    
-#     # create levels of directories and files
-#     split_path = df['full_pathname'].str.split('/', expand = True).iloc[:, 1:]
-#     df = pd.concat([split_path, df], axis = 1)
-
-#     index_df = df.set_index(df.columns[:max_level].tolist())
-#     return index_df
-
-
-# @timer_func
-# def main():
-#     parser = argparse.ArgumentParser(prog="Project Jungle",
-#                                      description="Analyze project directories")
-#     parser.add_argument("-f", "--file", help="Input file to analyze")
-#     parser.add_argument("-o", "--output", help="Output directory")
-#     args = parser.parse_args()
-
-#     with open('config.json') as config_file:
-#         config = json.load(config_file)
-
-#         input_filepath = args.file
-#         file = args.file.split("/")[-1]
-#         filename = file.split(".")[0]
-
-#         output_dir = args.output
-#         pp_dir = output_dir + "/pp/"
-#         analysis_dir = output_dir + "/analysis/"
-#         vis_dir = output_dir + "/viz/"
-
-#         if not os.path.exists(pp_dir):
-#             os.makedirs(pp_dir)
-        
-#         if not os.path.exists(analysis_dir):
-#             os.makedirs(analysis_dir)
-
-#         if not os.path.exists(vis_dir):
-#             os.makedirs(vis_dir)
-
-#         if not os.path.exists(input_filepath):
-#             print(input_filepath)
-#             print("The input filepath doesn't exist")
-#             raise SystemExit(1)
-    
-#         max_level, index_error_raise_count, other_error = process_list_files(input_filepath, pp_dir + file)
-#         print("Index error raised: ", index_error_raise_count)
-#         print("Other error raised: ", other_error)
-#         print("-------------------- Finished preprocessing --------------------")
-
-#         current_datetime = pd.Timestamp.now()
-#         years_ago = current_datetime - pd.Timedelta(days=365*config["analysis_parameter"]["years"])
-#         levels = config["analysis_parameter"]["levels"]
-#         gb_threshold = config["analysis_parameter"]["gb_threshold"]
-
-#         index_df = load_data(pp_dir + file, max_level)
-#         print("-------------------- Finished loading data --------------------")
-
-#         final_df = analyze_data(index_df, levels, gb_threshold, years_ago)
-#         print("-------------------- Finished analyzing data --------------------")
-#         analysis_filepath = analysis_dir + filename + ".csv"
-#         final_df.to_csv(analysis_filepath)
-
-#         ### Fix the visualizations
-#         vis_df = final_df.copy()
-#         vis_df.reset_index(inplace=True)
-#         vis_df.fillna("NA", inplace=True)
-#         vis_df["year"] = vis_df["access_datetime"].dt.year
-#         vis_df["size_in_gb"] = vis_df["size_in_gb"].apply(lambda x: x + 1e-9)
-
-#         fig = px.treemap(vis_df, 
-#                          path=vis_df.columns[2:levels], 
-#                          values='size_in_gb', 
-#                          color='year', 
-#                          color_continuous_scale='RdBu', 
-#                          range_color=[2012, 2024])
-#         fig.update_traces(hovertemplate='labels=%{label}<br>size_in_gb=%{value:.1f}<br>parent=%{parent}<br>id=%{id}<br>year=%{color:4i}<extra></extra>')
-#         fig.write_html(vis_dir + filename + ".html")
-
-# if __name__ == "__main__":
-#     main()
-
 
 ### main.py
 import argparse
@@ -153,7 +17,7 @@ from dask.distributed import Client
 
 import pandas as pd
 import plotly.express as px
-from analyze import analyze_data_new, path_extract
+from analyze import analyze_data, path_extract
 from timeit import default_timer as timer
 from tqdm import tqdm
 
@@ -166,7 +30,7 @@ def timer_func(func):
         return result
     return wrapper
 
-@timer_func
+
 def concatenate_parts(parts_dir, ofile, remove_dir=True):
     ''' Find all of the files in parts_dir, concatenate them
     to the file ofile. Optionally remove the
@@ -193,7 +57,6 @@ def concatenate_parts(parts_dir, ofile, remove_dir=True):
         print(f'CSV file: {ofile}')
         print(f'{e}')
 
-@timer_func
 def process_list_files(input_filepath, n_workers):
     def process_line(line):
         # line has the format:
@@ -208,8 +71,8 @@ def process_list_files(input_filepath, n_workers):
             size_in_bytes = split_line[6]
             size_in_kb = split_line[7]
             access_time = split_line[8]
-            # And now the filepath
-            full_pathname = line[1]
+            # And now the filepath. Remove the /gpfs4 prefix.
+            full_pathname = line[1].replace('/gpfs4','')
             levels = full_pathname.count('/')
             return owner, size_in_bytes, size_in_kb, access_time, full_pathname, levels
         except (UnicodeDecodeError, IndexError):
@@ -235,7 +98,7 @@ def process_list_files(input_filepath, n_workers):
    
 @timer_func
 def setup_vis_df(df, min_level, max_level, current_datetime):
-    ''' Add columns to the df that correspond to the levels in the paths.
+    ''' Add columns to the Dask df that correspond to the levels in the paths.
        Then convert it to Pandas, do a little processing, and return. '''
     # Make columns for each path depth for use with the path=
     # argument in treemap.
@@ -244,12 +107,12 @@ def setup_vis_df(df, min_level, max_level, current_datetime):
         df[str(col)] = df['levels_pathname'].apply(path_extract, args=(col,True),  meta=('levels_pathname', 'str'))
     # Done, now convert to pandas.
     vis_df = df.compute()
-    
     vis_df.reset_index(inplace=True)
-   # vis_df.fillna("NA", inplace=True)
     vis_df["year_category"] = pd.cut(vis_df["access_datetime"].dt.year, 
-                                      bins=[-float('inf'), current_datetime.year - 10, current_datetime.year - 5, current_datetime.year],
-                                      labels=["Older than 10 years", "Older than 5 years", "Less than 5 years"])
+                                      bins=[-float('inf'), current_datetime.year - 5, current_datetime.year - 3, current_datetime.year],
+                                      labels=["Older than 5 years", "Older than 3 years", "Less than 3 years"])
+    
+    # What is this for?
     vis_df["size_in_gb"] = vis_df["size_in_gb"].apply(lambda x: x + 1e-9)
     return vis_df
     
@@ -312,49 +175,64 @@ def main():
     max_levels = index_df['levels'].max().compute()
     if levels > max_levels:
         levels = max_levels
-    index_df= analyze_data_new(index_df, levels, gb_threshold, years_ago)
+    final_df = analyze_data(index_df, levels, gb_threshold, years_ago)
     analysis_filepath = analysis_dir + filename + ".csv"
-    index_df.to_csv(os.path.join(analysis_dir,'parts'), single_file=False, index=False)
+    final_df.to_csv(os.path.join(analysis_dir,'parts'), single_file=False, index=False)
     # Combine the parts into 1 CSV
-    concatenate_parts(os.path.join(analysis_filepath,'parts'), analysis_filepath)
+    concatenate_parts(os.path.join(analysis_dir,'parts'), analysis_filepath)
     print("-------------------- Finished analyzing data --------------------")
 
     ### Visualization
     
     # Convert the Dask dataframe to a Pandas dataframe for visualization.
-    # 4 is the starting depth for directories in the analysis.
-    vis_df = setup_vis_df(index_df, 4, levels, current_datetime )
+    # 3 is the starting depth for directories in the analysis: /projectnb/proj/X
+    vis_df = setup_vis_df(final_df, 3, levels, current_datetime )
+    
+    # This is for debugging, this can be reloaded just to play around
+    # with the treemap.
     import pickle
     with open('vis.pkl','wb') as f:
         pickle.dump(vis_df, f)
+    
+    
+    # TODO - size_in_gb is already the cumulative sum, but Plotly will compute
+    # that automatically. I attempted to add back in the original data per
+    # directory in the 'dir_size_in _gb' column in analyze_data() but it's
+    # probably wrong.
+    vis_file = vis_dir + filename + ".html"
+    print(f'Generating {vis_file}')
     fig = px.treemap(vis_df, 
-                     path=[str(x) for x in range(4,levels+1)], #vis_df.columns[4:levels], 
-                     values='size_in_gb', 
-                     color='year_category', 
-                     color_discrete_sequence=px.colors.qualitative.Set1)
-    fig.update_traces(hovertemplate='labels=%{label}<br>size_in_gb=%{value:.1f}<br>parent=%{parent}<br>id=%{id}<br>year_category=%{color}<extra></extra>')
-    fig.write_html(vis_dir + filename + ".html")
+                     path=[str(x) for x in range(3,levels+1)], 
+                     values='dir_size_in_gb', 
+                     branchvalues='remainder',
+                     color='year_category')
+    # This is from the original code.
+    fig.update_traces(hovertemplate='labels=%{label}<br>size_in_gb=%{value:.1f}<br>parent=%{parent}<br>id=%{id}<br>year=%{color:4i}<extra></extra>')
+    fig.write_html(vis_file)
+
+    #fig = px.treemap(vis_df, 
+    #                 path=[str(x) for x in range(3,levels+1)], 
+    #                 values='dir_size_in_gb', 
+    #                 color='year_category')
+    #fig.update_traces(hovertemplate='labels=%{label}<br>size_in_gb=%{value:.1f}<br>parent=%{parent}<br>id=%{id}<br>year=%{color:4i}<extra></extra>')
+    #fig.write_html(vis_dir + filename + ".sum.html")
+    
     
 
 
-p='/gpfs4/projectnb/econdept/tklee/telecom/demand_estimation/output'
-path_extract(p, 8, False)
-path_extract(p, 10, True)
-path_extract(p, 9, True)
-path_extract(p, 8, True)
-path_extract(p, 7, True)
-path_extract(p, 7, True)
-
 if __name__ == "__main__":
     try: 
-        n_cores =int( os.environ.get('NSLOTS',1))
+        n_cores =int( os.environ.get('NSLOTS',8))
         # Leave 1 core for the main Python process.
         n_cores = max(1, n_cores - 1)
-        client = Client(n_workers=n_cores, processes=True)
+        # Multiple single thread processes
+        client = Client(n_workers=n_cores, processes=True, threads_per_worker=1)
         print(f'Client dashboard: { client.dashboard_link }')
         main()
     finally:
-        # Make sure to shut down dask even in the event of failures.
+        # Make sure to shut down dask cleanly even in the event of failures.
+        # If it's not shut down it will eventually close down due to a lack
+        # of connections, or it will be killed when a batch job ends.
         client.shutdown()
         client.close()
         

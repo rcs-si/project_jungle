@@ -1,7 +1,7 @@
 import pandas as pd
 import dask.dataframe as dd
 
-def analyze_data(df, levels, gb_threshold, time_threshold):
+def analyze_data_old(df, levels, gb_threshold, time_threshold):
     df_in_use = df
     df_append = pd.DataFrame()
 
@@ -27,9 +27,9 @@ def analyze_data(df, levels, gb_threshold, time_threshold):
     
 
 def path_extract(full_pathname, levels, level_limit=False):
-    ''' For a path like /gpfs4/project/econdept/x/y/z/A.dat
+    ''' For a path like /project/econdept/x/y/z/A.dat
         extract the levels number of dirs
-        so levels=4 --> /gpfs4/project/econdept/x
+        so levels=3 --> /project/econdept/x
     '''
     # if level_limit is True, if the number of / characters is less than
     # levels return an empty string.
@@ -38,15 +38,13 @@ def path_extract(full_pathname, levels, level_limit=False):
     return '/'.join(full_pathname.split('/')[0:levels+1])
  
 
-def analyze_data_new(df, max_levels, gb_threshold, time_threshold):
+def analyze_data(df, max_levels, gb_threshold, time_threshold):
     # Create a column for per-level pathnames.
     df['levels_pathname'] = ''
     df_append = []
 
-    # Is this a good idea? Probably not?
-    #full_pathnames = set(df['full_pathname'].unique())
-    # Top level of /gpfs4/projectnb/projname is 4.
-    for level in range(4, max_levels+1):
+    # Top level of /projectnb/projname is 3.
+    for level in range(3, max_levels+1):
         # Create or replace a column in a portion of df to hold the paths for this level.
         df_levels = df[df['levels'] >= level]
         df_levels['levels_pathname'] = df_levels['full_pathname'].apply(path_extract, args=(level,),  meta=('levels_pathname', 'str'))
@@ -65,6 +63,14 @@ def analyze_data_new(df, max_levels, gb_threshold, time_threshold):
     # Filter it for any remaining files that are outside the limits.
     final_df =final_df.query(f'(size_in_gb > {gb_threshold}) | (access_datetime < @t_thresh)',
                                 local_dict={'t_thresh':time_threshold})
+    # Now look up the size_in_gb in the original df and store that in 
+    # final_df. Match on the levels_pathname column.
+    final_df = final_df.reset_index()
+    tmp_df = df[['full_pathname','size_in_gb']].rename(columns={'size_in_gb':'dir_size_in_gb'})
+    # These are explicitly cast as strings to avoid warnings in the merge. 
+    final_df = final_df.astype({"levels_pathname": "string"})
+    tmp_df = tmp_df.astype({"full_pathname": "string"})
+    final_df = final_df.merge(tmp_df, left_on='levels_pathname',right_on='full_pathname')
     final_df = final_df.reset_index()
     return final_df
     
