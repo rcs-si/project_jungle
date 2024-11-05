@@ -1,28 +1,75 @@
 import csv
+import json
+import time
+import pandas as pd
+import numpy as np
+import datetime 
+import argparse
 
+#Cadre:
+#period                    N `size (GB)`
+#10 years or more         15           0
+#between 7.5 and 10       29           0
+#between 5 and 7.5      7602           9
+#between 2.5 and 5  14653281       19271
+#less than 2.5      10446739      634217
 
-def process_list_files(input_filepath, output_filepath):
-    max_level = 0
-    index_error_raise_count = 0
-    other_error = 0
-    with open(input_filepath, 'r') as infile:
-        with open(output_filepath, 'w') as outfile:
-            writer = csv.writer(outfile)
-            for i, line in enumerate(infile):
-                try:
-                    strip_line = line.strip()
-                    split_line = strip_line.split(maxsplit=11)
-                    pathname = split_line[-1]
-                    levels = count_levels(pathname)
-                    max_level = max(max_level, levels)
-                    owner = split_line[4]
-                    size_in_bytes = split_line[6]
-                    size_in_kb = split_line[7]
-                    access_time = split_line[8]
-                    full_pathname = split_line[11]
-                    writer.writerow([owner, size_in_bytes, size_in_kb, access_time, full_pathname])
-                except UnicodeDecodeError:
-                    index_error_raise_count += 1
-                except Exception as e:
-                    other_error += 1
-    return max_level, index_error_raise_count, other_error
+def gen_categories(bins):
+    ''' From the bins, generate categories for each.'''
+    cats = []
+    if len(bins) < 2:
+        raise Exception(f'bins is too short: {len(bins)}')
+        
+    cats.append(f'less than {bins[0]}') 
+    # Loop thru bins[1:-2] to fill in the in between values.
+    for i,b in enumerate(bins[1:]):
+        cats.append(f'between {bins[i]} and {b}')
+    cats.append(f'greater than {bins[-1]}')
+    return cats
+    
+def summarize_file(infile, oldest_years, year_incr):
+    # What time is it?
+    now =  pd.to_datetime(datetime.datetime.now())
+    # TODO: make this switchable, between right now
+    # and the time when the infile was created.
+    
+    # Read in the 2 columns we need using pandas. This is 
+    # the fastest way to read this. Columns 7 and 9 hold the
+    # size in bytes and the access time in seconds.
+    # As the resulting dataframe is not very big this is quick to read.
+    # the access_time column is converted on the fly to a datetime.
+    
+    df = pd.read_csv(infile,usecols=[7,9], names=['size', 'access_time'],  delimiter=' ',
+        dtype={'size':float, 'access_time':float}, on_bad_lines='skip')
+    df['size'] = df['size'] / 1e9  # convert bytes to GB
+    bins = list(np.arange(year_incr, oldest_years + year_incr, year_incr))  
+    # Get the categories for adding a new column for binning by year.
+    cats = gen_categories(bins)
+    # Strictly speaking this ignores leap years, but that should be ok.
+    df['period'] = pd.cut((time.time() - df['access_time'])/(365*24*3600), 
+                         bins=[0]+bins+[oldest_years*10], include_lowest=True, labels=cats)
+    return df.groupby('period',observed=True).agg({"size": "sum", "access_time": "count"}).\
+           rename(columns={'size':'size (GB)','access_time':'N'}
+
+ 
+ 
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(prog="Project Jungle",
+                                     description="Summarize disk usage by age.")
+    # argparse will check to see if this file exists and is readable.
+    parser.add_argument("-f", "--file", help="Input file to analyze",
+                        type=argparse.FileType('r', encoding='UTF-8'), 
+                        required=True)
+    args = parser.parse_args()
+    
+    infile = args.file.name
+    
+    #with open('config.json') as config_file:
+    # TODO: read the year bins from the config file.
+    # For now, hard-code: >10 years, 10 to 7.5, 7.5 to 5, 5 to 2.5, less than 2.5
+    oldest_years = 10
+    year_incr = 2.5
+    
+    results = summarize_file(infile, oldest_years, year_incr)
+    pd.options.display.float_format = '{:,.1f}'.format
+    print(results)
