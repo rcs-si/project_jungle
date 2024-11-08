@@ -23,7 +23,7 @@ def process_list_files(input_filepath, output_filepath):
     max_level = 0
     index_error_raise_count = 0
     other_error = 0
-    with open(input_filepath, 'r') as infile:
+    with open(input_filepath, 'r', encoding='UTF-8', errors='backslashreplace') as infile:
         with open(output_filepath, 'w') as outfile:
             writer = csv.writer(outfile)
             for i, line in enumerate(infile):
