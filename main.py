@@ -61,7 +61,6 @@ def load_data(file_path, max_level, delimiter=','):
     index_df = df.set_index(df.columns[:max_level].tolist())
     return index_df
 
-
 @timer_func
 def main():
     parser = argparse.ArgumentParser(prog="Project Jungle",
@@ -121,13 +120,34 @@ def main():
         vis_df["year"] = vis_df["access_datetime"].dt.year
         vis_df["size_in_gb"] = vis_df["size_in_gb"].apply(lambda x: x + 1e-9)
 
-        fig = px.treemap(vis_df, 
-                         path=vis_df.columns[2:levels], 
-                         values='size_in_gb', 
-                         color='year', 
-                         color_continuous_scale='RdBu', 
-                         range_color=[2012, 2024])
-        fig.update_traces(hovertemplate='labels=%{label}<br>size_in_gb=%{value:.1f}<br>parent=%{parent}<br>id=%{id}<br>year=%{color:4i}<extra></extra>')
+        # Define bins and labels as per the logic provided
+        bins = [0, 2.5, 5, 7.5, 10, float('inf')]
+        labels = [
+            'less than 2.5',
+            'between 2.5 and 5',
+            'between 5 and 7.5',
+            'between 7.5 and 10',
+            '10 years or more'
+        ]
+
+        # Assign each entry to a bin based on 'size_in_gb'
+        vis_df['size_bin'] = pd.cut(vis_df['size_in_gb'], bins=bins, labels=labels, right=False)
+
+        set1_colors = [
+            'rgb(228,26,28)', 'rgb(55,126,184)', 'rgb(77,175,74)',
+            'rgb(152,78,163)', 'rgb(255,127,0)', 'rgb(255,255,51)',
+            'rgb(166,86,40)', 'rgb(247,129,191)', 'rgb(153,153,153)'
+        ]
+
+        fig = px.treemap(
+            vis_df,
+            path=vis_df.columns[2:levels],
+            values='size_in_gb',
+            color='size_bin',
+            color_discrete_sequence=set1_colors
+        )
+
+        fig.update_traces(hovertemplate='labels=%{label}<br>size_in_gb=%{value:.1f}<br>parent=%{parent}<br>id=%{id}<br>size_bin=%{color}<extra></extra>')
         fig.write_html(vis_dir + filename + ".html")
 
 if __name__ == "__main__":
