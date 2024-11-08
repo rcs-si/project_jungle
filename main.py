@@ -2,6 +2,7 @@ import argparse
 import csv
 import json
 import os
+import sys
 import pandas as pd
 import plotly.express as px
 from analyze import analyze_data
@@ -67,8 +68,8 @@ def main():
                                      description="Analyze project directories")
     parser.add_argument("-f", "--file", help="Input file to analyze")
     parser.add_argument("-o", "--output", help="Output directory")
-    args = parser.parse_args()
-
+    args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
+    
     with open('config.json') as config_file:
         config = json.load(config_file)
 
