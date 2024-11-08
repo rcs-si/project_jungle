@@ -40,7 +40,8 @@ def summarize_file(infile, oldest_years, year_incr):
     # the access_time column is converted on the fly to a datetime.
     
     df = pd.read_csv(infile,usecols=[7,9], names=['size', 'access_time'],  delimiter=' ',
-        dtype={'size':float, 'access_time':float}, on_bad_lines='skip')
+        dtype={'size':float, 'access_time':float}, on_bad_lines='skip',
+        encoding_errors='backslashreplace')
     df['size'] = df['size'] / 1e9  # convert bytes to GB
     bins = list(np.arange(year_incr, oldest_years + year_incr, year_incr))  
     # Get the categories for adding a new column for binning by year.
@@ -49,7 +50,7 @@ def summarize_file(infile, oldest_years, year_incr):
     df['period'] = pd.cut((time.time() - df['access_time'])/(365*24*3600), 
                          bins=[0]+bins+[oldest_years*10], include_lowest=True, labels=cats)
     return df.groupby('period',observed=True).agg({"size": "sum", "access_time": "count"}).\
-           rename(columns={'size':'size (GB)','access_time':'N'}
+           rename(columns={'size':'size (GB)','access_time':'N'}) 
 
  
  
@@ -57,12 +58,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog="Project Jungle",
                                      description="Summarize disk usage by age.")
     # argparse will check to see if this file exists and is readable.
-    parser.add_argument("-f", "--file", help="Input file to analyze",
-                        type=argparse.FileType('r', encoding='UTF-8'), 
-                        required=True)
+    parser.add_argument("-i", "--infile", help="Input file to analyze",
+                        type=argparse.FileType('r', encoding='UTF-8', 
+                        errors='backslashreplace'), required=True)
+    parser.add_argument("-o", "--outfile", help="Input file to analyze")     
     args = parser.parse_args()
     
-    infile = args.file.name
+    infile = args.infile
+    outfile = None
+    if args.outfile:
+        outfile = args.outfile
     
     #with open('config.json') as config_file:
     # TODO: read the year bins from the config file.
@@ -72,4 +77,8 @@ if __name__ == '__main__':
     
     results = summarize_file(infile, oldest_years, year_incr)
     pd.options.display.float_format = '{:,.1f}'.format
-    print(results)
+    if outfile:
+        outfile.write(results)
+        outfile.close()
+    else:
+        print(results)
