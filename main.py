@@ -225,8 +225,8 @@ if __name__ == "__main__":
         n_cores =int( os.environ.get('NSLOTS',8))
         # Leave 1 core for the main Python process.
         n_cores = max(1, n_cores - 1)
-        # Multiple single thread processes
-        client = Client(n_workers=n_cores, processes=True, threads_per_worker=1)
+        # Multiple single thread processes with an appriximate 4GB limit per process.
+        client = Client(n_workers=n_cores, processes=True, threads_per_worker=1, memory_limit='4GiB')
         print(f'Client dashboard: { client.dashboard_link }')
         main()
     finally:
