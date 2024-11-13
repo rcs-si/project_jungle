@@ -5,8 +5,6 @@ import json
 import os
 import shutil
 import glob
-
-
 # Suppress annoying Dask messages
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -14,9 +12,13 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 import dask.bag as db
 import dask.dataframe as dd
 from dask.distributed import Client
+# Only print errors from dask distributed.
+import dask
+dask.config.set({'logging.distributed': 'error'})
 
 import pandas as pd
 import plotly.express as px
+import numpy as np
 from analyze import analyze_data, path_extract
 from timeit import default_timer as timer
 from tqdm import tqdm
@@ -57,49 +59,37 @@ def concatenate_parts(parts_dir, ofile, remove_dir=True):
         print(f'CSV file: {ofile}')
         print(f'{e}')
 
-def process_list_files(input_filepath, n_workers):
-    def process_line(line):
-        # line has the format:
-        # ["string with data space separated","full pathname"]
-        if len(line) != 2:
-            #print(f'EXCEPTION: {line}')
-            return '', 0, 0, 0, '', 0
-        try:
-            # Process most of the line
-            split_line = line[0].split()
-            owner = split_line[4]
-            size_in_bytes = split_line[6]
-            size_in_kb = split_line[7]
-            access_time = split_line[8]
-            # And now the filepath. Remove the /gpfs4 prefix.
-            full_pathname = line[1].replace('/gpfs4','')
-            levels = full_pathname.count('/')
-            return owner, size_in_bytes, size_in_kb, access_time, full_pathname, levels
-        except (UnicodeDecodeError, IndexError):
-            return '', 0, 0, 0, '', 0
-        except Exception:
-            return '', 0, 0, 0, '', 0
+def process_list_files_df(input_filepath):
+    ''' Process directly into a Dask dataframe. This skips the Dask Bag generation that
+    was initially used. It's not really needed and this is faster.
+    '''
 
-    # Use the Bag built-in strip and split functions. The split on ' -- ' will return
-    # a tuple: (most of the line, full path)
-    bag = db.read_text(input_filepath, encoding='utf-8',errors='backslashreplace', blocksize='32M').\
-                       str.strip().str.split(' -- ')
-    # Re-work each line into a tuple, and remove any lines that did not 
-    # decode correctly.
-    bag = bag.map(process_line).filter(lambda x: len(x[0]) > 0)
-    # Convert to a dataframe
-    df = bag.to_dataframe(meta={'owner': str, 'size_in_bytes': int, 'size_in_kb': int, 
-                                'access_time': str, 'full_pathname': str, 'levels': int})
-    # Now add extra columns.
-    df['size_in_gb'] = df['size_in_bytes'].astype(float) / 1e9
+    # Input file format:
+    # num1 num2 num3 permissions owner group size_in_bytes size_in_kb access_time modification_time -- full_pathname
+    # Read and split on the spaces (one or more)  using a regex.
+    df = dd.read_csv(input_filepath, sep='\\s+', on_bad_lines='skip',
+                     encoding_errors='backslashreplace',
+                     names=['owner','group','size_in_kb','access_time','full_pathname'],
+                     usecols=[4,5,7,8,11], header=None,
+                     dtype={'owner':str, 'groups':str, 'access_time':float,'size_in_kb':np.float32, 'full_pathname':str})
+    # Remove the /gpfsv4 prefix from the filename.
+    df['full_pathname'] = df['full_pathname'].str.replace('/gpfs4','').str.strip()
+    # Compute the size in gb column.
+    df['size_in_gb'] = df['size_in_kb'] / np.float32(1e6)
+    # Convert the access time to a datetime64 format.
     df['access_datetime'] = dd.to_datetime(df['access_time'], unit='s', origin='unix')
+    # Drop the access time.
+    del df['access_time']
+    # Add a levels column
+    df['levels'] = df['full_pathname'].str.count('/')
     return df
- 
-   
+
 @timer_func
 def setup_vis_df(df, min_level, max_level, current_datetime):
     ''' Add columns to the Dask df that correspond to the levels in the paths.
-       Then convert it to Pandas, do a little processing, and return. '''
+       Then convert it to Pandas, do a little processing, and return a Pandas
+       dataframe.
+    '''
     # Make columns for each path depth for use with the path=
     # argument in treemap.
     cols = list(range(min_level, max_level + 1))
@@ -113,18 +103,12 @@ def setup_vis_df(df, min_level, max_level, current_datetime):
                                       labels=["Older than 5 years", "Older than 3 years", "Less than 3 years"])
     
     # What is this for?
-    vis_df["size_in_gb"] = vis_df["size_in_gb"].apply(lambda x: x + 1e-9)
+    #vis_df["size_in_gb"] = vis_df["size_in_gb"].apply(lambda x: x + 1e-9)
     return vis_df
     
     
 @timer_func
-def main():
-    parser = argparse.ArgumentParser(prog="Project Jungle",
-                                     description="Analyze project directories")
-    parser.add_argument("-f", "--file", help="Input file to analyze")
-    parser.add_argument("-o", "--output", help="Output directory")
-    args = parser.parse_args()
-    
+def main(args, n_cores):
     # Read the config file.
     with open('config.json') as config_file:
         config = json.load(config_file)
@@ -152,7 +136,7 @@ def main():
         print("The input filepath doesn't exist")
         raise SystemExit(1)
 
-    index_df = process_list_files(input_filepath, n_cores)
+    index_df = process_list_files_df(input_filepath)
 
     current_datetime = pd.Timestamp.now()
     years_ago = current_datetime - pd.Timedelta(days=365*config["analysis_parameter"]["years"])
@@ -162,7 +146,7 @@ def main():
     # Persist the df to avoid re-loading it from disk.
     index_df = index_df.persist()
     # Write out the CSVs in parallel. This is VERY fast.
-    index_df[['owner', 'size_in_bytes', 'size_in_kb', 'access_time', 'full_pathname','levels']].\
+    index_df[['owner', 'group','size_in_kb', 'size_in_gb', 'access_datetime', 'full_pathname','levels']].\
         to_csv(os.path.join(pp_dir,filename_ext), single_file=False, 
         index=False, header_first_partition_only=True)
     
@@ -171,7 +155,6 @@ def main():
                       os.path.join(pp_dir,filename_ext) + '.csv')
 
     print("-------------------- Finished preprocessing --------------------")
-
     max_levels = index_df['levels'].max().compute()
     if levels > max_levels:
         levels = max_levels
@@ -221,6 +204,13 @@ def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(prog="Project Jungle",
+                                     description="Analyze project directories")
+    parser.add_argument("-f", "--file", help="Input file to analyze")
+    parser.add_argument("-o", "--output", help="Output directory")
+    args = parser.parse_args()
+
+    client = None
     try: 
         n_cores =int( os.environ.get('NSLOTS',8))
         # Leave 1 core for the main Python process.
@@ -228,12 +218,13 @@ if __name__ == "__main__":
         # Multiple single thread processes with an appriximate 4GB limit per process.
         client = Client(n_workers=n_cores, processes=True, threads_per_worker=1, memory_limit='4GiB')
         print(f'Client dashboard: { client.dashboard_link }')
-        main()
+        main(args, n_cores)
     finally:
         # Make sure to shut down dask cleanly even in the event of failures.
         # If it's not shut down it will eventually close down due to a lack
         # of connections, or it will be killed when a batch job ends.
-        client.shutdown()
-        client.close()
+        if client:
+            client.shutdown()
+            client.close()
         
         
