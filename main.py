@@ -2,6 +2,7 @@ import argparse
 import csv
 import json
 import os
+import sys
 import pandas as pd
 import plotly.express as px
 from analyze import analyze_data
@@ -22,7 +23,7 @@ def process_list_files(input_filepath, output_filepath):
     max_level = 0
     index_error_raise_count = 0
     other_error = 0
-    with open(input_filepath, 'r') as infile:
+    with open(input_filepath, 'r', encoding='UTF-8', errors='backslashreplace') as infile:
         with open(output_filepath, 'w') as outfile:
             writer = csv.writer(outfile)
             for i, line in enumerate(infile):
@@ -66,8 +67,8 @@ def main():
                                      description="Analyze project directories")
     parser.add_argument("-f", "--file", help="Input file to analyze")
     parser.add_argument("-o", "--output", help="Output directory")
-    args = parser.parse_args()
-
+    args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
+    
     with open('config.json') as config_file:
         config = json.load(config_file)
 
