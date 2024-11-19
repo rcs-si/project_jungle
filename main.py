@@ -69,7 +69,8 @@ def main():
     parser.add_argument("-o", "--output", help="Output directory")
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
     
-    with open('config.json') as config_file:
+    script_dir = os.path.realpath(__file__)
+    with open(os.path.join(script_dir,'config.json')) as config_file:
         config = json.load(config_file)
 
         input_filepath = args.file
