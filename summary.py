@@ -39,7 +39,7 @@ def summarize_file(infile, oldest_years, year_incr):
     # As the resulting dataframe is not very big this is quick to read.
     # the access_time column is converted on the fly to a datetime.
     
-    df = pd.read_csv(infile,usecols=[7,9], names=['size', 'access_time'],  delimiter=' ',
+    df = pd.read_csv(infile,usecols=[6,8], names=['size', 'access_time'],  sep='\\s+',
         dtype={'size':float, 'access_time':float}, on_bad_lines='skip',
         encoding_errors='backslashreplace')
     df['size'] = df['size'] / 1e9  # convert bytes to GB
