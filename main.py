@@ -12,6 +12,7 @@ def timer_func(func):
     def wrapper(*args, **kwargs):
         t1 = timer()
         result = func(*args, **kwargs)
+        t2 = timer()
         print(f'{func.__name__}() executed in {(t2-t1):.6f}s')
         return result
     return wrapper
@@ -69,7 +70,7 @@ def main():
     parser.add_argument("-o", "--output", help="Output directory")
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
     
-    script_dir = os.path.realpath(__file__)
+    script_dir = os.path.dirname(os.path.realpath(__file__))
     with open(os.path.join(script_dir,'config.json')) as config_file:
         config = json.load(config_file)
 
@@ -116,8 +117,9 @@ def main():
 
         ### Fix the visualizations
         vis_df = final_df.copy()
-        vis_df.reset_index(inplace=True)
-        vis_df.fillna("NA", inplace=True)
+        vis_df = vis_df.reset_index()
+        #vis_df.fillna("NA", inplace=True)
+        vis_df = vis_df.fillna("")
         vis_df["year"] = vis_df["access_datetime"].dt.year
         vis_df["size_in_gb"] = vis_df["size_in_gb"].apply(lambda x: x + 1e-9)
 

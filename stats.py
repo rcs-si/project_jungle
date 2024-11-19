@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import datetime 
 import argparse
+import time
+
 
 def gen_categories(bins):
     ''' From the bins, generate categories for each.'''
@@ -22,7 +24,7 @@ def summarize_file(infile, oldest_years, year_incr):
     now =  pd.to_datetime(datetime.datetime.now())
     
     # Read in the columns we need using pandas.
-    df = pd.read_csv(infile, usecols=[4, 7, 9], names=['owner', 'size', 'access_time'], delimiter=' ',
+    df = pd.read_csv(infile, usecols=[4, 6, 8], names=['owner', 'size', 'access_time'], sep='\\s+',
         dtype={'owner': str, 'size': float, 'access_time': float}, on_bad_lines='skip',
         encoding_errors='backslashreplace')
     df['size'] = df['size'] / 1e9  # convert bytes to GB
@@ -63,7 +65,10 @@ if __name__ == '__main__':
     if outfile:
         results.to_csv(outfile, index=False)
     else:
+        pd.set_option('display.max_rows',None)
+        pd.set_option('display.max_columns',None)
+        pd.set_option('display.max_colwidth',None)
+        pd.set_option('display.width',None)
         print(results)
-
 
 
