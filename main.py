@@ -12,7 +12,6 @@ def timer_func(func):
     def wrapper(*args, **kwargs):
         t1 = timer()
         result = func(*args, **kwargs)
-        t2 = timer()
         print(f'{func.__name__}() executed in {(t2-t1):.6f}s')
         return result
     return wrapper
@@ -146,6 +145,20 @@ def main():
             values='size_in_gb',
             color='size_bin',
             color_discrete_sequence=set1_colors
+        )
+
+        # Adding a legend to the treemap sort of a test for now.
+        fig.update_layout(
+            legend_title_text='Size Categories (in GB)',
+            legend=dict(
+                title_font_size=14,
+                font_size=12,
+                orientation="v",  # Vertical legend orientation
+                yanchor="top",
+                y=1.0,
+                xanchor="left",
+                x=1.05
+            )
         )
 
         fig.update_traces(hovertemplate='labels=%{label}<br>size_in_gb=%{value:.1f}<br>parent=%{parent}<br>id=%{id}<br>size_bin=%{color}<extra></extra>')
