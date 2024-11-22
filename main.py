@@ -69,7 +69,8 @@ def main():
     parser.add_argument("-o", "--output", help="Output directory")
     args = parser.parse_args()
 
-    with open('config.json') as config_file:
+    ### POTENTIAL PROBLEM SPOT DEPENDING ON WHERE YOU RUN THIS (THIS ONLY WORKS FOR MY REPO)
+    with open('/projectnb/rcs-intern/reetom/project_jungle/config.json') as config_file: 
         config = json.load(config_file)
 
         input_filepath = args.file
@@ -120,45 +121,34 @@ def main():
         vis_df["year"] = vis_df["access_datetime"].dt.year
         vis_df["size_in_gb"] = vis_df["size_in_gb"].apply(lambda x: x + 1e-9)
 
-        # Define bins and labels as per the logic provided
-        bins = [0, 2.5, 5, 7.5, 10, float('inf')]
-        labels = [
-            'less than 2.5',
-            'between 2.5 and 5',
-            'between 5 and 7.5',
-            'between 7.5 and 10',
-            '10 years or more'
-        ]
+        # Retrieve bins and colors from config
+        bins = config["color_mapping"]["bins"]
+        colors = config["color_mapping"]["colors"]
 
         # Assign each entry to a bin based on 'size_in_gb'
-        vis_df['size_bin'] = pd.cut(vis_df['size_in_gb'], bins=bins, labels=labels, right=False)
-
-        set1_colors = [
-            'rgb(228,26,28)', 'rgb(55,126,184)', 'rgb(77,175,74)',
-            'rgb(152,78,163)', 'rgb(255,127,0)', 'rgb(255,255,51)',
-            'rgb(166,86,40)', 'rgb(247,129,191)', 'rgb(153,153,153)'
-        ]
+        vis_df['size_bin'] = pd.cut(vis_df['size_in_gb'],
+                                     bins=[0, 2.5, 5, 7.5, 10, float('inf')],
+                                     labels=bins, right=False)
 
         fig = px.treemap(
             vis_df,
             path=vis_df.columns[2:levels],
             values='size_in_gb',
             color='size_bin',
-            color_discrete_sequence=set1_colors
+            color_discrete_map=colors
         )
 
-        # Adding a legend to the treemap sort of a test for now.
+        # Adding a legend dynamically from config
+        legend_text = '<b>Legend:</b><br>'
+        for bin_label, color_name in colors.items():
+            legend_text += f'<span style="color:{color_name}">{bin_label}</span><br>'
+
         fig.update_layout(
             annotations=[
                 dict(
                     x=1.05,
                     y=1.0,
-                    text='<b>Legend:</b><br>'
-                         '<span style="color:rgb(255,127,0)">less than 2.5</span><br>'
-                         '<span style="color:rgb(55,126,184)">between 2.5 and 5</span><br>'
-                         '<span style="color:rgb(77,175,74)">between 5 and 7.5</span><br>'
-                         '<span style="color:rgb(152,78,163)">between 7.5 and 10</span><br>'
-                         '<span style="color:rgb(228,26,28)">10 years or more</span>',
+                    text=legend_text,
                     showarrow=False,
                     align='left',
                     xanchor='left',
