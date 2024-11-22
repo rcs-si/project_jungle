@@ -11,6 +11,7 @@ def timer_func(func):
     def wrapper(*args, **kwargs):
         t1 = timer()
         result = func(*args, **kwargs)
+        t2 = timer()
         print(f'{func.__name__}() executed in {(t2-t1):.6f}s')
         return result
     return wrapper
@@ -49,13 +50,13 @@ def load_data(file_path, max_level, delimiter=','):
     df.columns = ['owner', 'size_in_bytes', 'size_in_kb', 'access_time', 'full_pathname']
     df['size_in_gb'] = df['size_in_bytes'] / 1e9
 
-    # transfer access time to human readable format
+    # Transfer access time to human-readable format
     df['access_datetime'] = pd.to_datetime(df['access_time'], unit='s', origin='unix')
     df = df[['owner', 'size_in_gb', 'access_datetime', 'full_pathname']]
     
-    # create levels of directories and files
-    split_path = df['full_pathname'].str.split('/', expand = True).iloc[:, 1:]
-    df = pd.concat([split_path, df], axis = 1)
+    # Create levels of directories and files
+    split_path = df['full_pathname'].str.split('/', expand=True).iloc[:, 1:]
+    df = pd.concat([split_path, df], axis=1)
 
     index_df = df.set_index(df.columns[:max_level].tolist())
     return index_df
@@ -112,7 +113,7 @@ def main():
         analysis_filepath = analysis_dir + filename + ".csv"
         final_df.to_csv(analysis_filepath)
 
-        ### Fix the visualizations
+        ### Visualizations
         vis_df = final_df.copy()
         vis_df.reset_index(inplace=True)
         vis_df.fillna("NA", inplace=True)
@@ -148,16 +149,27 @@ def main():
 
         # Adding a legend to the treemap sort of a test for now.
         fig.update_layout(
-            legend_title_text='Size Categories (in GB)',
-            legend=dict(
-                title_font_size=14,
-                font_size=12,
-                orientation="v",  # Vertical legend orientation
-                yanchor="top",
-                y=1.0,
-                xanchor="left",
-                x=1.05
-            )
+            annotations=[
+                dict(
+                    x=1.05,
+                    y=1.0,
+                    text='<b>Legend:</b><br>'
+                         '<span style="color:rgb(255,127,0)">less than 2.5</span><br>'
+                         '<span style="color:rgb(55,126,184)">between 2.5 and 5</span><br>'
+                         '<span style="color:rgb(77,175,74)">between 5 and 7.5</span><br>'
+                         '<span style="color:rgb(152,78,163)">between 7.5 and 10</span><br>'
+                         '<span style="color:rgb(228,26,28)">10 years or more</span>',
+                    showarrow=False,
+                    align='left',
+                    xanchor='left',
+                    yanchor='top',
+                    xref='paper',
+                    yref='paper',
+                    bordercolor='black',
+                    borderwidth=1
+                )
+            ],
+            margin=dict(t=50, l=25, r=200, b=25)
         )
 
         fig.update_traces(hovertemplate='labels=%{label}<br>size_in_gb=%{value:.1f}<br>parent=%{parent}<br>id=%{id}<br>size_bin=%{color}<extra></extra>')
