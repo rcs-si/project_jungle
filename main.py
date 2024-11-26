@@ -2,6 +2,7 @@ import argparse
 import csv
 import json
 import os
+import sys
 import pandas as pd
 import plotly.express as px
 from analyze import analyze_data
@@ -23,7 +24,7 @@ def process_list_files(input_filepath, output_filepath):
     max_level = 0
     index_error_raise_count = 0
     other_error = 0
-    with open(input_filepath, 'r') as infile:
+    with open(input_filepath, 'r', encoding='UTF-8', errors='backslashreplace') as infile:
         with open(output_filepath, 'w') as outfile:
             writer = csv.writer(outfile)
             for i, line in enumerate(infile):
@@ -67,10 +68,10 @@ def main():
                                      description="Analyze project directories")
     parser.add_argument("-f", "--file", help="Input file to analyze")
     parser.add_argument("-o", "--output", help="Output directory")
-    args = parser.parse_args()
-
-    ### POTENTIAL PROBLEM SPOT DEPENDING ON WHERE YOU RUN THIS (THIS ONLY WORKS FOR MY REPO)
-    with open('/projectnb/rcs-intern/reetom/project_jungle/config.json') as config_file: 
+    args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
+    
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    with open(os.path.join(script_dir,'config.json')) as config_file:
         config = json.load(config_file)
 
         input_filepath = args.file
@@ -116,8 +117,9 @@ def main():
 
         ### Visualizations
         vis_df = final_df.copy()
-        vis_df.reset_index(inplace=True)
-        vis_df.fillna("NA", inplace=True)
+        vis_df = vis_df.reset_index()
+        #vis_df.fillna("NA", inplace=True)
+        vis_df = vis_df.fillna("")
         vis_df["year"] = vis_df["access_datetime"].dt.year
         vis_df["size_in_gb"] = vis_df["size_in_gb"].apply(lambda x: x + 1e-9)
 
