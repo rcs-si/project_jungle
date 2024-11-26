@@ -1,7 +1,7 @@
 {
     "analysis_parameter": {
         "years": 10,
-        "levels": 8,
+        "levels": 6,
         "gb_threshold": 10
     },
     "color_mapping": {
