@@ -51,13 +51,13 @@ def load_data(file_path, max_level, delimiter=','):
     df.columns = ['owner', 'size_in_bytes', 'size_in_kb', 'access_time', 'full_pathname']
     df['size_in_gb'] = df['size_in_bytes'] / 1e9
 
-    # transfer access time to human readable format
+    # Transfer access time to human-readable format
     df['access_datetime'] = pd.to_datetime(df['access_time'], unit='s', origin='unix')
     df = df[['owner', 'size_in_gb', 'access_datetime', 'full_pathname']]
     
-    # create levels of directories and files
-    split_path = df['full_pathname'].str.split('/', expand = True).iloc[:, 1:]
-    df = pd.concat([split_path, df], axis = 1)
+    # Create levels of directories and files
+    split_path = df['full_pathname'].str.split('/', expand=True).iloc[:, 1:]
+    df = pd.concat([split_path, df], axis=1)
 
     index_df = df.set_index(df.columns[:max_level].tolist())
     return index_df
@@ -115,7 +115,7 @@ def main():
         analysis_filepath = analysis_dir + filename + ".csv"
         final_df.to_csv(analysis_filepath)
 
-        ### Fix the visualizations
+        ### Visualizations
         vis_df = final_df.copy()
         vis_df = vis_df.reset_index()
         #vis_df.fillna("NA", inplace=True)
@@ -123,45 +123,45 @@ def main():
         vis_df["year"] = vis_df["access_datetime"].dt.year
         vis_df["size_in_gb"] = vis_df["size_in_gb"].apply(lambda x: x + 1e-9)
 
-        # Define bins and labels as per the logic provided
-        bins = [0, 2.5, 5, 7.5, 10, float('inf')]
-        labels = [
-            'less than 2.5',
-            'between 2.5 and 5',
-            'between 5 and 7.5',
-            'between 7.5 and 10',
-            '10 years or more'
-        ]
+        # Retrieve bins and colors from config
+        bins = config["color_mapping"]["bins"]
+        colors = config["color_mapping"]["colors"]
 
         # Assign each entry to a bin based on 'size_in_gb'
-        vis_df['size_bin'] = pd.cut(vis_df['size_in_gb'], bins=bins, labels=labels, right=False)
-
-        set1_colors = [
-            'rgb(228,26,28)', 'rgb(55,126,184)', 'rgb(77,175,74)',
-            'rgb(152,78,163)', 'rgb(255,127,0)', 'rgb(255,255,51)',
-            'rgb(166,86,40)', 'rgb(247,129,191)', 'rgb(153,153,153)'
-        ]
+        vis_df['size_bin'] = pd.cut(vis_df['size_in_gb'],
+                                     bins=[0, 2.5, 5, 7.5, 10, float('inf')],
+                                     labels=bins, right=False)
 
         fig = px.treemap(
             vis_df,
             path=vis_df.columns[2:levels],
             values='size_in_gb',
             color='size_bin',
-            color_discrete_sequence=set1_colors
+            color_discrete_map=colors
         )
 
-        # Adding a legend to the treemap sort of a test for now.
+        # Adding a legend dynamically from config
+        legend_text = '<b>Legend:</b><br>'
+        for bin_label, color_name in colors.items():
+            legend_text += f'<span style="color:{color_name}">{bin_label}</span><br>'
+
         fig.update_layout(
-            legend_title_text='Size Categories (in GB)',
-            legend=dict(
-                title_font_size=14,
-                font_size=12,
-                orientation="v",  # Vertical legend orientation
-                yanchor="top",
-                y=1.0,
-                xanchor="left",
-                x=1.05
-            )
+            annotations=[
+                dict(
+                    x=1.05,
+                    y=1.0,
+                    text=legend_text,
+                    showarrow=False,
+                    align='left',
+                    xanchor='left',
+                    yanchor='top',
+                    xref='paper',
+                    yref='paper',
+                    bordercolor='black',
+                    borderwidth=1
+                )
+            ],
+            margin=dict(t=50, l=25, r=200, b=25)
         )
 
         fig.update_traces(hovertemplate='labels=%{label}<br>size_in_gb=%{value:.1f}<br>parent=%{parent}<br>id=%{id}<br>size_bin=%{color}<extra></extra>')
