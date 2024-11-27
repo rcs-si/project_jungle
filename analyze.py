@@ -9,7 +9,7 @@ def analyze_data(df, levels, gb_threshold, time_threshold):
 
         # filter out those directories/files that are small or not old enough
         filtered_df = pjg[(pjg['size_in_gb'] > gb_threshold) | (pjg['access_datetime'] < time_threshold)]
-        filtered_df.to_csv("aggregate_level.csv")
+        # filtered_df.to_csv("aggregate_level.csv")
         level_values = filtered_df.index.get_level_values(l)  
         filterfurther_df = df[df.index.get_level_values(l - 1).isin(level_values)]
 
