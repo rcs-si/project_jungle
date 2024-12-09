@@ -13,11 +13,12 @@
             "10 years or more"
         ],
         "colors": {
-            "less than 2.5": "orange",
-            "between 2.5 and 5": "blue",
-            "between 5 and 7.5": "green",
-            "between 7.5 and 10": "purple",
-            "10 years or more": "red"
+            "less than 2.5": "rgb(255,127,0)",
+            "between 2.5 and 5": "rgb(55,126,184",
+            "between 5 and 7.5": "rgb(77,175,74)",
+            "between 7.5 and 10": "rgb(152,78,163)",
+            "10 years or more": "rgb(228,26,28)"
         }
+        
     }
 }
