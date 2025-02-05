@@ -109,6 +109,8 @@ def main():
         index_df = load_data(pp_dir + file, max_level)
         print("-------------------- Finished loading data --------------------")
 
+        import pickle
+
         final_df = analyze_data(index_df, levels, gb_threshold, years_ago)
         print("-------------------- Finished analyzing data --------------------")
         analysis_filepath = analysis_dir + filename + ".csv"
@@ -120,6 +122,7 @@ def main():
         vis_df.fillna("NA", inplace=True)
         vis_df["year"] = vis_df["access_datetime"].dt.year
         vis_df["size_in_gb"] = vis_df["size_in_gb"].apply(lambda x: x + 1e-9)
+        
 
         # Retrieve bins and colors from config
         bins = config["color_mapping"]["bins"]
@@ -129,6 +132,16 @@ def main():
         vis_df['size_bin'] = pd.cut(vis_df['size_in_gb'],
                                      bins=[0, 2.5, 5, 7.5, 10, float('inf')],
                                      labels=bins, right=False)
+
+        with open(f"viz_df.pk", "wb") as f:
+            pickle.dump(vis_df,f)
+
+        with open(f"final_df.pk", "wb") as f:
+            pickle.dump(final_df,f)
+
+        print(final_df)
+
+        exit()
 
         fig = px.treemap(
             vis_df,
