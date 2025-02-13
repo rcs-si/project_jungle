@@ -8,3 +8,10 @@ output
 *.pe*
 *.po*
 /data/
+/pp/
+pp
+final_df_cell.pk
+final_df.pk
+viz_df_cell.pk
+viz_df.pk
+*.pk
