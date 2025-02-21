@@ -66,10 +66,17 @@ def df_to_hierarchical(df, levels):
     for keys, group in grouped:
         #node = hierarchical_data
         node = build_tree(group)  # call
+        # for key in keys:
+        #     if key not in [child["name"] for child in node["children"]]:
+        #         node["children"].append({"name": key, "children": []})
+        #     node = next(child for child in node["children"] if child["name"] == key)
         for key in keys:
+            if "children" not in node:
+                node["children"] = []  # Ensure node has a 'children' key
             if key not in [child["name"] for child in node["children"]]:
                 node["children"].append({"name": key, "children": []})
             node = next(child for child in node["children"] if child["name"] == key)
+
         node["children"] = [{"name": "size", "size_in_gb": group["size_in_gb"].sum()}]
     return hierarchical_data
 
@@ -107,6 +114,54 @@ if __name__ == "__main__":
     main()
 
 
+
+
+
+
+"""
+
+ERROR 1
+python main.py -f /projectnb/scv/atime/rprojectnb_hla.list 
+Traceback (most recent call last):
+  File "/projectnb/rcs-intern/reetom/project_jungle/main.py", line 107, in <module>
+    main()
+  File "/projectnb/rcs-intern/reetom/project_jungle/main.py", line 11, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/projectnb/rcs-intern/reetom/project_jungle/main.py", line 90, in main
+    pp_dir = os.path.join(output_dir, "pp")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen posixpath>", line 76, in join
+
+ # Fixed use -o
+
+ERROR2
+python main.py -f /projectnb/scv/atime/rprojectnb_hla.list -o /projectnb/rcs-intern/reetom/project_jungle
+Traceback (most recent call last):
+  File "/projectnb/rcs-intern/reetom/project_jungle/main.py", line 107, in <module>
+    main()
+  File "/projectnb/rcs-intern/reetom/project_jungle/main.py", line 11, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/projectnb/rcs-intern/reetom/project_jungle/main.py", line 101, in main
+    hierarchical_data = df_to_hierarchical(final_df, max_level)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/projectnb/rcs-intern/reetom/project_jungle/main.py", line 70, in df_to_hierarchical
+    if key not in [child["name"] for child in node["children"]]:
+                                              ~~~~^^^^^^^^^^^^
+KeyError: 'children'
+[rgangopa@scc1 project_jungle]$ 
+
+
+
+
+FIXED ABOVE
+
+'ERROR 3'
+main() executed in 0.024646s
+YEAH RIGHT. Probably crashing somewhere. Why?
+
+"""
 
 
 
