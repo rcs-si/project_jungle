@@ -80,6 +80,15 @@ def df_to_hierarchical(df, levels):
         node["children"] = [{"name": "size", "size_in_gb": group["size_in_gb"].sum()}]
     return hierarchical_data
 
+print(final_df)
+print(final_df.shape)
+
+exit()
+
+
+
+
+
 @timer_func
 def main():
     parser = argparse.ArgumentParser(prog="Project Jungle",
@@ -176,3 +185,5 @@ YEAH RIGHT. Probably crashing somewhere. Why?
         # print(final_df)
 
         # exit()
+
+        
