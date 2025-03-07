@@ -47,7 +47,7 @@
                 .round(true);
 
             const root = d3.hierarchy(data, d => d.children)
-                .sum(d => d.size_in_gb || 0)
+                .sum(d => d.value || 0)
                 .sort((a, b) => b.value - a.value);
 
 

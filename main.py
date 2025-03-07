@@ -3,6 +3,8 @@ import csv
 import json
 import os
 import pandas as pd
+import itertools as it
+
 from timeit import default_timer as timer
 
 def timer_func(func):
@@ -29,11 +31,13 @@ def process_list_files(input_filepath, output_filepath):
                     strip_line = line.strip()
                     split_line = strip_line.split(maxsplit=11)
                     pathname = split_line[-1]
+                    pathname = pathname.replace('/gpfs4','')
                     levels = count_levels(pathname)
                     max_level = max(max_level, levels)
                     owner = split_line[4]
                     size_in_bytes = split_line[6]
                     full_pathname = split_line[11]
+                    full_pathname = full_pathname.replace('/gpfs4','')
                     writer.writerow([owner, size_in_bytes, full_pathname])
                 except UnicodeDecodeError:
                     index_error_raise_count += 1
@@ -50,6 +54,19 @@ def load_data(file_path, max_level, delimiter=','):
     df = pd.concat([split_path, df], axis=1)
     index_df = df.set_index(df.columns[:max_level].tolist())
     return index_df
+ 
+    
+def conv_leaf_dict(x):
+    '''x is the lowest level dictionary containing files:
+        node['rprojectnb']['ABC']['QWE']={'x.hap': {'size_in_gb': 0.020849856}, 'y.haps': {'size_in_gb': 0.020937379}}                                          
+      Returns the new dict format:
+          [{'name': 'x.hap', 'value': 0.020849856}, {'name': 'y.haps', 'value': 0.020937379}]
+    '''    
+    y = []
+    for key in x:
+        tmp = {'name':key, 'value':x[key]['size_in_gb']}
+        y.append(tmp)
+    return y
 
 def df_to_hierarchical(df, levels):
     def build_tree(group):
@@ -61,15 +78,26 @@ def df_to_hierarchical(df, levels):
                 tree[key] = {"size_in_gb": sub_group["size_in_gb"].sum()}
         return tree
     
-    hierarchical_data = {"name": "root", "children": []}
+    hierarchical_data = {'name':None, 'children':[]}
     grouped = df.groupby(level=list(range(levels)))
     for keys, group in grouped:
         #node = hierarchical_data
-        node = build_tree(group)  # call
+        # unique-ify the keys while preserving the order
+        keys = tuple(dict(zip(keys,it.repeat(None))).keys())
+        # The 1st column in group is repeated. Drop it.
+        #group = group.drop(group.iloc[:,0])
+        node = build_tree(group)
+        node = node[list(node.keys())[0]]
         # for key in keys:
         #     if key not in [child["name"] for child in node["children"]]:
         #         node["children"].append({"name": key, "children": []})
         #     node = next(child for child in node["children"] if child["name"] == key)
+       # ('rprojectnb', 'hla', 'Nastia-analysis')
+        for key in keys:
+            if not hierarchical_data['name']:
+                hierarchical_data['name'] = key
+            
+        
         for key in keys:
             if "children" not in node:
                 node["children"] = []  # Ensure node has a 'children' key
@@ -78,12 +106,13 @@ def df_to_hierarchical(df, levels):
             node = next(child for child in node["children"] if child["name"] == key)
 
         node["children"] = [{"name": "size", "size_in_gb": group["size_in_gb"].sum()}]
+        hierarchical_data['children'].append(node)
     return hierarchical_data
 
-print(final_df)
-print(final_df.shape)
+#print(final_df)
+#print(final_df.shape)
 
-exit()
+#exit()
 
 
 
