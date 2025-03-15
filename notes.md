@@ -24,6 +24,9 @@ for x in a:
     #or append your list of file dictionaries
     break
 ```
+
+Another approach implemented. will check in on github (have a merge conflict)
+
 anyway, something along those lines. 
 
 #### task 2
@@ -32,6 +35,8 @@ Test the "indented tree" visualization.
 #### task 3
 Implement the pre-computed directory size in Python and add it to the JSON data structure. 
 Then modify the indented tree to read that instead of doing its own sum.
+
+in progress
 
 #### task 4
 Replace the process_data.json file read in the HTMl with an insert of the data directly into the HTML page.
