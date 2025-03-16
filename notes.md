@@ -32,11 +32,13 @@ anyway, something along those lines.
 #### task 2
 Test the "indented tree" visualization. 
 
+Indented tree visual works, but I wonder how it would behave for extremely large data.
+
 #### task 3
 Implement the pre-computed directory size in Python and add it to the JSON data structure. 
 Then modify the indented tree to read that instead of doing its own sum.
 
-in progress
+in progress - Does this make sense? I believe there is some stuff happening in the back end for d3 that handles this. Github still broken will fix conflict.
 
 #### task 4
 Replace the process_data.json file read in the HTMl with an insert of the data directly into the HTML page.
