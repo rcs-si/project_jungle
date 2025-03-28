@@ -45,6 +45,8 @@ def process_list_files(input_filepath, output_filepath):
                     other_error += 1
     return max_level, index_error_raise_count, other_error
 
+
+
 def load_data(file_path, max_level, delimiter=','):
     df = pd.read_csv(file_path, delimiter=delimiter, header=None)
     df.columns = ['owner', 'size_in_bytes', 'full_pathname']
@@ -68,54 +70,92 @@ def conv_leaf_dict(x):
         y.append(tmp)
     return y
 
+# def df_to_hierarchical(df, levels):
+#     def build_tree(group):
+#         tree = {}
+#         for key, sub_group in group.groupby(level=0, group_keys=False):
+#             if sub_group.index.nlevels > 1:
+#                 tree[key] = build_tree(sub_group.droplevel(0))
+#             else:
+#                 tree[key] = {"size_in_gb": sub_group["size_in_gb"].sum()}
+#         return tree
+    
+#     hierarchical_data = {'name':None, 'children':[]}
+#     grouped = df.groupby(level=list(range(levels)))
+#     for keys, group in grouped:
+#         #node = hierarchical_data
+#         # unique-ify the keys while preserving the order
+#         keys = tuple(dict(zip(keys,it.repeat(None))).keys())
+#         # The 1st column in group is repeated. Drop it.
+#         #group = group.drop(group.iloc[:,0])
+#         node = build_tree(group)
+#         node = node[list(node.keys())[0]]
+#         # for key in keys:
+#         #     if key not in [child["name"] for child in node["children"]]:
+#         #         node["children"].append({"name": key, "children": []})
+#         #     node = next(child for child in node["children"] if child["name"] == key)
+#        # ('rprojectnb', 'hla', 'Nastia-analysis')
+
+# ####
+#         for key in keys:
+#             if not hierarchical_data['name']:
+#                 hierarchical_data['name'] = key  ##
+            
+        
+#         for key in keys:
+#             if "children" not in node:
+#                 node["children"] = []  # Ensure node has a 'children' key
+#             if key not in [child["name"] for child in node["children"]]:
+#                 node["children"].append({"name": key, "children": []})
+#             node = next(child for child in node["children"] if child["name"] == key)
+
+#         node["children"] = [{"name": "size", "size_in_gb": group["size_in_gb"].sum()}]
+#         hierarchical_data['children'].append(node)
+
+# ####
+#     return hierarchical_data
+
+# #print(final_df)
+# #print(final_df.shape)
+
+# #exit()
+
+
 def df_to_hierarchical(df, levels):
     def build_tree(group):
+        """Recursively builds the hierarchical dictionary structure."""
         tree = {}
         for key, sub_group in group.groupby(level=0, group_keys=False):
             if sub_group.index.nlevels > 1:
                 tree[key] = build_tree(sub_group.droplevel(0))
             else:
-                tree[key] = {"size_in_gb": sub_group["size_in_gb"].sum()}
+                # Convert leaf nodes to the required format
+                tree[key] = conv_leaf_dict(sub_group.to_dict(orient="index"))
         return tree
-    
-    hierarchical_data = {'name':None, 'children':[]}
+
+    hierarchical_data = {'name': "root", 'children': []}
     grouped = df.groupby(level=list(range(levels)))
+
     for keys, group in grouped:
-        #node = hierarchical_data
-        # unique-ify the keys while preserving the order
-        keys = tuple(dict(zip(keys,it.repeat(None))).keys())
-        # The 1st column in group is repeated. Drop it.
-        #group = group.drop(group.iloc[:,0])
-        node = build_tree(group)
-        node = node[list(node.keys())[0]]
-        # for key in keys:
-        #     if key not in [child["name"] for child in node["children"]]:
-        #         node["children"].append({"name": key, "children": []})
-        #     node = next(child for child in node["children"] if child["name"] == key)
-       # ('rprojectnb', 'hla', 'Nastia-analysis')
-        for key in keys:
-            if not hierarchical_data['name']:
-                hierarchical_data['name'] = key
-            
-        
-        for key in keys:
-            if "children" not in node:
-                node["children"] = []  # Ensure node has a 'children' key
-            if key not in [child["name"] for child in node["children"]]:
-                node["children"].append({"name": key, "children": []})
-            node = next(child for child in node["children"] if child["name"] == key)
+        keys = tuple(dict.fromkeys(keys))  # remove duplicates
+        node = hierarchical_data
 
-        node["children"] = [{"name": "size", "size_in_gb": group["size_in_gb"].sum()}]
-        hierarchical_data['children'].append(node)
+        # Traverse through the tree to insert the current file
+        for key in keys:
+            existing_child = next((child for child in node["children"] if child["name"] == key), None)
+            if existing_child is None:
+                new_child = {"name": key, "children": []}
+                node["children"].append(new_child)
+                node = new_child
+            else:
+                node = existing_child
+
+        # Add file data at the final node
+        if "children" not in node:
+            node["children"] = []
+        node["children"].extend(conv_leaf_dict(group.to_dict(orient="index")))
+
     return hierarchical_data
-
-#print(final_df)
-#print(final_df.shape)
-
-#exit()
-
-
-
 
 
 @timer_func
