@@ -1,3 +1,17 @@
+
+### March 28, 2025
+
+Previous tasks...
+- task 1: done! the js branch is now is producing correct JSON code for the D3.js visualizer widgets.
+- task 2: tested & done, "icicle.html" is a new variant, 2 indented trees are also in the visualization directory. 
+- task 3: done
+
+#### task 4
+Using the main/stats.py and summary.py files as guides, replace the input file handling in main.py with pandas.read_csv configured correctly. This will vastly improve speed & memory usage and makes the Dask branch obsolete. 
+
+#### task 5
+Modify one of the HTML visualization files into a template that allows for direct substitution of the JSON string, to skip the need to run a web server to load the JSON data. Modify main.py to insert this string. 
+
 ### March 10, 2025
 
 Discussed creating the "flare2.json" format from the nested dictionary
