@@ -1,5 +1,6 @@
 
 ### March 28, 2025
+Poster proposal was submitted to PEARC.
 
 Previous tasks...
 - task 1: done! the js branch is now is producing correct JSON code for the D3.js visualizer widgets.
