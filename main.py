@@ -63,63 +63,13 @@ def conv_leaf_dict(x):
         node['rprojectnb']['ABC']['QWE']={'x.hap': {'size_in_gb': 0.020849856}, 'y.haps': {'size_in_gb': 0.020937379}}                                          
       Returns the new dict format:
           [{'name': 'x.hap', 'value': 0.020849856}, {'name': 'y.haps', 'value': 0.020937379}]
-    '''    
+    '''
+    #import pdb;pdb.set_trace()    
     y = []
     for key in x:
-        tmp = {'name':key, 'value':x[key]['size_in_gb']}
+        tmp = {'name':key[-1], 'value':x[key]['size_in_gb']}
         y.append(tmp)
     return y
-
-# def df_to_hierarchical(df, levels):
-#     def build_tree(group):
-#         tree = {}
-#         for key, sub_group in group.groupby(level=0, group_keys=False):
-#             if sub_group.index.nlevels > 1:
-#                 tree[key] = build_tree(sub_group.droplevel(0))
-#             else:
-#                 tree[key] = {"size_in_gb": sub_group["size_in_gb"].sum()}
-#         return tree
-    
-#     hierarchical_data = {'name':None, 'children':[]}
-#     grouped = df.groupby(level=list(range(levels)))
-#     for keys, group in grouped:
-#         #node = hierarchical_data
-#         # unique-ify the keys while preserving the order
-#         keys = tuple(dict(zip(keys,it.repeat(None))).keys())
-#         # The 1st column in group is repeated. Drop it.
-#         #group = group.drop(group.iloc[:,0])
-#         node = build_tree(group)
-#         node = node[list(node.keys())[0]]
-#         # for key in keys:
-#         #     if key not in [child["name"] for child in node["children"]]:
-#         #         node["children"].append({"name": key, "children": []})
-#         #     node = next(child for child in node["children"] if child["name"] == key)
-#        # ('rprojectnb', 'hla', 'Nastia-analysis')
-
-# ####
-#         for key in keys:
-#             if not hierarchical_data['name']:
-#                 hierarchical_data['name'] = key  ##
-            
-        
-#         for key in keys:
-#             if "children" not in node:
-#                 node["children"] = []  # Ensure node has a 'children' key
-#             if key not in [child["name"] for child in node["children"]]:
-#                 node["children"].append({"name": key, "children": []})
-#             node = next(child for child in node["children"] if child["name"] == key)
-
-#         node["children"] = [{"name": "size", "size_in_gb": group["size_in_gb"].sum()}]
-#         hierarchical_data['children'].append(node)
-
-# ####
-#     return hierarchical_data
-
-# #print(final_df)
-# #print(final_df.shape)
-
-# #exit()
-
 
 def df_to_hierarchical(df, levels):
     def build_tree(group):
@@ -190,69 +140,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-"""
-
-ERROR 1
-python main.py -f /projectnb/scv/atime/rprojectnb_hla.list 
-Traceback (most recent call last):
-  File "/projectnb/rcs-intern/reetom/project_jungle/main.py", line 107, in <module>
-    main()
-  File "/projectnb/rcs-intern/reetom/project_jungle/main.py", line 11, in wrapper
-    result = func(*args, **kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^
-  File "/projectnb/rcs-intern/reetom/project_jungle/main.py", line 90, in main
-    pp_dir = os.path.join(output_dir, "pp")
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "<frozen posixpath>", line 76, in join
-
- # Fixed use -o
-
-ERROR2
-python main.py -f /projectnb/scv/atime/rprojectnb_hla.list -o /projectnb/rcs-intern/reetom/project_jungle
-Traceback (most recent call last):
-  File "/projectnb/rcs-intern/reetom/project_jungle/main.py", line 107, in <module>
-    main()
-  File "/projectnb/rcs-intern/reetom/project_jungle/main.py", line 11, in wrapper
-    result = func(*args, **kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^
-  File "/projectnb/rcs-intern/reetom/project_jungle/main.py", line 101, in main
-    hierarchical_data = df_to_hierarchical(final_df, max_level)
-                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/projectnb/rcs-intern/reetom/project_jungle/main.py", line 70, in df_to_hierarchical
-    if key not in [child["name"] for child in node["children"]]:
-                                              ~~~~^^^^^^^^^^^^
-KeyError: 'children'
-[rgangopa@scc1 project_jungle]$ 
-
-
-
-
-FIXED ABOVE
-
-'ERROR 3'
-main() executed in 0.024646s
-YEAH RIGHT. Probably crashing somewhere. Why?
-
-"""
-
-
-
-
-
-        # with open(f"viz_df.pk", "wb") as f:
-        #     pickle.dump(vis_df,f)
-
-        # with open(f"final_df.pk", "wb") as f:
-        #     pickle.dump(final_df,f)
-
-        # print(final_df)
-
-        # exit()
-
-        
