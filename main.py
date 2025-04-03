@@ -18,14 +18,13 @@ def timer_func(func):
 def count_levels(file_path):
     return file_path.count('/')
 
-def process_list_files(input_filepath, output_filepath):
-   # import pdb; pdb.set_trace()
+
+def process_list_file(input_filepath):
     try:
         df = pd.read_csv(
             input_filepath,
-            usecols=[6, 7, 12],  # 6: owner, 7: size, 12: path CHECK THE SIZE COL
+            usecols=[6, 7, 12],  # 6: owner, 7: size, 12: path
             names=['owner', 'size_in_bytes', 'full_pathname'],
-            # dtype={'owner': str, 'size_in_bytes': float, 'full_pathname': str},
             delimiter=' ',
             on_bad_lines='skip',
             engine='python',
@@ -41,24 +40,9 @@ def process_list_files(input_filepath, output_filepath):
         raise ValueError("DataFrame is empty after filtering. Check the input file format.")
 
     df['full_pathname'] = df['full_pathname'].str.replace('/gpfs4', '', regex=False)
-
     max_level = df['full_pathname'].apply(count_levels).max()
-    df.to_csv(output_filepath, index=False, header=False)
 
-    return max_level, 0, 0
-
-def load_data(file_path, max_level, delimiter=','):
-    df = pd.read_csv(file_path, delimiter=delimiter, header=None)
-    df.columns = ['owner', 'size_in_bytes', 'full_pathname']
-
-    df['size_in_bytes'] = pd.to_numeric(df['size_in_bytes'], errors='raise')
-
-    df['size_in_gb'] = df['size_in_bytes'] / 1e9
-
-    split_path = df['full_pathname'].str.split('/', expand=True).iloc[:, 1:]
-    df = pd.concat([split_path, df], axis=1)
-    index_df = df.set_index(df.columns[:max_level].tolist())
-    return index_df
+    return df, max_level
 
 
 def conv_leaf_dict(x):
@@ -114,19 +98,25 @@ def main():
     with open('config.json') as config_file:
         config = json.load(config_file)
         input_filepath = args.file
-        file = os.path.basename(input_filepath)
-        filename = file.split(".")[0]
         output_dir = args.output
-        pp_dir = os.path.join(output_dir, "pp")
-        if not os.path.exists(pp_dir):
-            os.makedirs(pp_dir)
+
         if not os.path.exists(input_filepath):
             print("The input filepath doesn't exist")
             raise SystemExit(1)
 
-        processed_path = os.path.join(pp_dir, file)
-        max_level, _, _ = process_list_files(input_filepath, processed_path)
-        index_df = load_data(processed_path, max_level)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        df, max_level = process_list_file(input_filepath)
+
+        # Process DataFrame directly in memory
+        df.columns = ['owner', 'size_in_bytes', 'full_pathname']
+        df['size_in_bytes'] = pd.to_numeric(df['size_in_bytes'], errors='raise')
+        df['size_in_gb'] = df['size_in_bytes'] / 1e9
+
+        split_path = df['full_pathname'].str.split('/', expand=True).iloc[:, 1:]
+        df = pd.concat([split_path, df], axis=1)
+        index_df = df.set_index(df.columns[:max_level].tolist())
 
         final_df = index_df.groupby(level=list(range(max_level))).sum()
         hierarchical_data = df_to_hierarchical(final_df, max_level)
