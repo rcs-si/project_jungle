@@ -18,56 +18,12 @@ def timer_func(func):
 def count_levels(file_path):
     return file_path.count('/')
 
-
-# def process_list_files(input_filepath, output_filepath):
-#     # Read only the needed columns: 4 (owner), 6 (size), 11 (full path)
-#     df = pd.read_csv(input_filepath, usecols=[4, 1, 11], 
-#                      names=['owner', 'size_in_bytes', 'full_pathname'], 
-#                      delimiter=' ', on_bad_lines='skip', engine='python',
-#                      encoding_errors='backslashreplace')
-
-#     df['full_pathname'] = df['full_pathname'].str.replace('/gpfs4', '', regex=False)
-#     df['size_in_bytes'] = pd.to_numeric(df['size_in_bytes'], errors='coerce')
-#     df = df.dropna(subset=['owner', 'size_in_bytes', 'full_pathname'])
-
-#     max_level = df['full_pathname'].apply(count_levels).max()
-#     df.to_csv(output_filepath, index=False, header=False)
-#     return max_level, 0, 0  # simplified: we aren't tracking Unicode or other error counts
-
-# def process_list_files(input_filepath, output_filepath):
-#     try:
-#         df = pd.read_csv(
-#             input_filepath,
-#             delim_whitespace=True,
-#             header=None,
-#             usecols=[4, 1, 11],
-#             names=['owner', 'size_in_bytes', 'full_pathname'],
-#             dtype={'owner': str, 'size_in_bytes': float, 'full_pathname': str},
-#             on_bad_lines='skip',
-#             engine='python',
-#             encoding_errors='backslashreplace'
-#         )
-#     except Exception as e:
-#         print(f"Failed to read input file: {e}")
-#         raise
-
-#     df = df.dropna(subset=['owner', 'size_in_bytes', 'full_pathname'])
-
-#     if df.empty:
-#         raise ValueError("DataFrame is empty after filtering. Check the input file format.")
-
-#     df['full_pathname'] = df['full_pathname'].str.replace('/gpfs4', '', regex=False)
-
-#     max_level = df['full_pathname'].apply(count_levels).max()
-#     df.to_csv(output_filepath, index=False, header=False)
-#     return max_level, 0, 0
-
 def process_list_files(input_filepath, output_filepath):
    # import pdb; pdb.set_trace()
     try:
         df = pd.read_csv(
             input_filepath,
-            usecols=[6, 7, 12],  # 4: owner, 6: size, 11: path
+            usecols=[6, 7, 12],  # 6: owner, 7: size, 12: path CHECK THE SIZE COL
             names=['owner', 'size_in_bytes', 'full_pathname'],
             # dtype={'owner': str, 'size_in_bytes': float, 'full_pathname': str},
             delimiter=' ',
@@ -90,16 +46,6 @@ def process_list_files(input_filepath, output_filepath):
     df.to_csv(output_filepath, index=False, header=False)
 
     return max_level, 0, 0
-
-# def load_data(file_path, max_level, delimiter=','):
-#     df = pd.read_csv(file_path, delimiter=delimiter, header=None)
-#     df.columns = ['owner', 'size_in_bytes', 'full_pathname']
-#     df['size_in_gb'] = df['size_in_bytes'] / 1e9
-
-#     split_path = df['full_pathname'].str.split('/', expand=True).iloc[:, 1:]
-#     df = pd.concat([split_path, df], axis=1)
-#     index_df = df.set_index(df.columns[:max_level].tolist())
-#     return index_df
 
 def load_data(file_path, max_level, delimiter=','):
     df = pd.read_csv(file_path, delimiter=delimiter, header=None)
