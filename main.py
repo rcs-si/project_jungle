@@ -20,21 +20,23 @@ def count_levels(file_path):
 
 
 def process_list_file(input_filepath):
+    # import pdb; pdb.set_trace()
     try:
         df = pd.read_csv(
             input_filepath,
-            usecols=[6, 7, 12],  # 6: owner, 7: size, 12: path
-            names=['owner', 'size_in_bytes', 'full_pathname'],
-            delimiter=' ',
+            usecols=[4, 6, 8, 11],  # 4: owner, 6: size (bytes), 8: access time, 11: path
+            names=['owner', 'size_in_bytes', 'access_time', 'full_pathname'],
+            dtype={'owner': str, 'size': float, 'access_time': float, 'full_pathname': str},
+            sep='\\s+',
             on_bad_lines='skip',
-            engine='python',
+         #   engine='python',
             encoding_errors='backslashreplace'
         )
     except Exception as e:
         print(f"Failed to read input file: {e}")
         raise
 
-    df = df.dropna(subset=['owner', 'size_in_bytes', 'full_pathname'])
+    df = df.dropna()
 
     if df.empty:
         raise ValueError("DataFrame is empty after filtering. Check the input file format.")
@@ -110,9 +112,11 @@ def main():
         df, max_level = process_list_file(input_filepath)
 
         # Process DataFrame directly in memory
-        df.columns = ['owner', 'size_in_bytes', 'full_pathname']
-        df['size_in_bytes'] = pd.to_numeric(df['size_in_bytes'], errors='raise')
+        # df.columns = ['owner', 'size_in_bytes', ''full_pathname']
+        # df['size_in_bytes'] = pd.to_numeric(df['size_in_bytes'], errors='raise')
+        
         df['size_in_gb'] = df['size_in_bytes'] / 1e9
+        # df = df.drop('size_in_bytes', axis = 1)
 
         split_path = df['full_pathname'].str.split('/', expand=True).iloc[:, 1:]
         df = pd.concat([split_path, df], axis=1)
