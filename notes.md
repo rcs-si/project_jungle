@@ -1,4 +1,10 @@
 
+### April 4, 2025
+- task 4 is done! 
+- task 6: Work on merging the icicle & indented tree displays into 1 vizualization file. Check out "baobab" in the "baobab" module for inspiration.
+- task 7: implement resizing of the SVG windows
+- task 8: Look at the analyze.py function in the Dask `develop` branch to see how to handle limits on directory depth and file size without a Pandas multi-index, then merge that into main.py.
+
 ### March 28, 2025
 Poster proposal was submitted to PEARC.
 
