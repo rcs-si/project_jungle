@@ -1,4 +1,58 @@
 {
     "name": "root",
-    "children": []
+    "children": [
+        {
+            "name": "rprojectnb",
+            "children": [
+                {
+                    "name": "hla",
+                    "children": [
+                        {
+                            "name": "Nastia-analysis",
+                            "children": [
+                                {
+                                    "name": "wtccc_reference.hap",
+                                    "value": 0.020849856
+                                },
+                                {
+                                    "name": "wtccc_reference.haps",
+                                    "value": 0.020937379
+                                },
+                                {
+                                    "name": "wtccc_reference.leg",
+                                    "value": 8.0535e-05
+                                },
+                                {
+                                    "name": "wtccc_reference.sam",
+                                    "value": 4.32e-05
+                                },
+                                {
+                                    "name": "wtccc_reference.sample",
+                                    "value": 4.3214e-05
+                                }
+                            ]
+                        },
+                        {
+                            "name": "ceu",
+                            "children": [
+                                {
+                                    "name": "ceu_hapmap_ref",
+                                    "value": 0.002506308
+                                }
+                            ]
+                        },
+                        {
+                            "name": "wtccc",
+                            "children": [
+                                {
+                                    "name": "58c_ref",
+                                    "value": 0.023626901999999998
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
 }
