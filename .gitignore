@@ -17,3 +17,4 @@ viz_df.pk
 *.pk
 test_output
 file.py
+processed_data.json
