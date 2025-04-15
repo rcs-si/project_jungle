@@ -3,6 +3,7 @@ import json
 import os
 import pandas as pd
 from timeit import default_timer as timer
+from datetime import datetime
 
 
 def timer_func(func):
@@ -10,7 +11,7 @@ def timer_func(func):
         t1 = timer()
         result = func(*args, **kwargs)
         t2 = timer()
-        print(f'{func.__name__}() executed in {(t2-t1):.6f}s')
+        print(f'{func.__name__}() executed in {(t2 - t1):.6f}s')
         return result
     return wrapper
 
@@ -20,16 +21,14 @@ def count_levels(file_path):
 
 
 def process_list_file(input_filepath):
-    # import pdb; pdb.set_trace()
     try:
         df = pd.read_csv(
             input_filepath,
-            usecols=[4, 6, 8, 11],  # 4: owner, 6: size (bytes), 8: access time, 11: path
+            usecols=[4, 6, 8, 11],  # 4: owner, 6: size, 8: access time, 11: path
             names=['owner', 'size_in_bytes', 'access_time', 'full_pathname'],
             dtype={'owner': str, 'size': float, 'access_time': float, 'full_pathname': str},
             sep='\\s+',
             on_bad_lines='skip',
-         #   engine='python',
             encoding_errors='backslashreplace'
         )
     except Exception as e:
@@ -42,8 +41,12 @@ def process_list_file(input_filepath):
         raise ValueError("DataFrame is empty after filtering. Check the input file format.")
 
     df['full_pathname'] = df['full_pathname'].str.replace('/gpfs4', '', regex=False)
-    max_level = df['full_pathname'].apply(count_levels).max()
 
+    # Add age_in_years
+    current_time = datetime.now().timestamp()
+    df['age_in_years'] = (current_time - df['access_time']) / (60 * 60 * 24 * 365)
+
+    max_level = df['full_pathname'].apply(count_levels).max()
     return df, max_level
 
 
@@ -51,7 +54,11 @@ def conv_leaf_dict(x):
     '''Convert leaf-level dict into a D3.js-compatible format'''
     y = []
     for key in x:
-        tmp = {'name': key[-1], 'value': x[key]['size_in_gb']}
+        tmp = {
+            'name': key[-1],
+            'value': x[key]['size_in_gb'],
+            'age_in_years': x[key]['age_in_years']
+        }
         y.append(tmp)
     return y
 
@@ -111,18 +118,18 @@ def main():
 
         df, max_level = process_list_file(input_filepath)
 
-        # Process DataFrame directly in memory
-        # df.columns = ['owner', 'size_in_bytes', ''full_pathname']
-        # df['size_in_bytes'] = pd.to_numeric(df['size_in_bytes'], errors='raise')
-        
         df['size_in_gb'] = df['size_in_bytes'] / 1e9
-        # df = df.drop('size_in_bytes', axis = 1)
 
         split_path = df['full_pathname'].str.split('/', expand=True).iloc[:, 1:]
         df = pd.concat([split_path, df], axis=1)
+
         index_df = df.set_index(df.columns[:max_level].tolist())
 
-        final_df = index_df.groupby(level=list(range(max_level))).sum()
+        final_df = index_df.groupby(level=list(range(max_level))).agg({
+            'size_in_gb': 'sum',
+            'age_in_years': 'mean'
+        })
+
         hierarchical_data = df_to_hierarchical(final_df, max_level)
 
         with open(os.path.join(output_dir, "processed_data.json"), "w") as f:

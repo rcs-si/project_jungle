@@ -125,7 +125,21 @@
         const width = 700;
         const height = 600;
 
-        const color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children.length + 1));
+        const colorMapping = {
+          "less than 2.5": "rgb(255,127,0)",
+          "between 2.5 and 5": "rgb(55,126,184)",
+          "between 5 and 7.5": "rgb(77,175,74)",
+          "between 7.5 and 10": "rgb(152,78,163)",
+          "10 years or more": "rgb(228,26,28)"
+        };
+
+        function getAgeBin(age) {
+          if (age < 2.5) return "less than 2.5";
+          else if (age < 5) return "between 2.5 and 5";
+          else if (age < 7.5) return "between 5 and 7.5";
+          else if (age < 10) return "between 7.5 and 10";
+          else return "10 years or more";
+        }
 
         const hierarchy = d3.hierarchy(data)
           .sum(d => d.value * 1000)
@@ -151,9 +165,9 @@
           .attr("height", d => rectHeight(d))
           .attr("fill-opacity", 0.6)
           .attr("fill", d => {
-            if (!d.depth) return "#ccc";
-            while (d.depth > 1) d = d.parent;
-            return color(d.data.name);
+            const age = d.data.age_in_years ?? 0;
+            const bin = getAgeBin(age);
+            return colorMapping[bin] || "#ccc";
           })
           .style("cursor", "pointer")
           .on("click", clicked);
