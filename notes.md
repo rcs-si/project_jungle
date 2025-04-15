@@ -1,3 +1,10 @@
+### April 15, 2025
+- task 6 done new dash_update.html visualization is looking pretty good.
+- task 7 - resizing works.
+- task 8 - finish by fri 18th, needed to make the json data sensible.
+- task 5 - insert json into .html, not a priority right time.
+- task 9 - new, colorize the indented tree by age (somehow).
+- future stuff - linking indented tree & icicle by clicks, coloring icicle by file size. Or just switch to the zoomable treemap which implements the size coloring already. 
 
 ### April 4, 2025
 - task 4 is done! 
