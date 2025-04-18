@@ -51,7 +51,7 @@ def process_list_file(input_filepath):
     df['levels'] = df['full_pathname'].str.count('/')
     df['access_datetime'] = pd.to_datetime(df['access_time'], unit='s')
 
-    max_level = df['levels'].max()
+    max_level = 5
     return df, max_level
 
 
