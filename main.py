@@ -20,6 +20,12 @@ def count_levels(file_path):
     return file_path.count('/')
 
 
+def path_extract(full_pathname, levels, level_limit=False):
+    if level_limit and full_pathname.count('/') < levels:
+        return ''
+    return '/'.join(full_pathname.split('/')[0:levels + 1])
+
+
 def process_list_file(input_filepath):
     try:
         df = pd.read_csv(
@@ -41,59 +47,51 @@ def process_list_file(input_filepath):
         raise ValueError("DataFrame is empty after filtering. Check the input file format.")
 
     df['full_pathname'] = df['full_pathname'].str.replace('/gpfs4', '', regex=False)
+    df['size_in_gb'] = df['size_in_bytes'] / 1e9
+    df['levels'] = df['full_pathname'].str.count('/')
+    df['access_datetime'] = pd.to_datetime(df['access_time'], unit='s')
 
-    # Add age_in_years
-    current_time = datetime.now().timestamp()
-    df['age_in_years'] = (current_time - df['access_time']) / (60 * 60 * 24 * 365)
-
-    max_level = df['full_pathname'].apply(count_levels).max()
+    max_level = df['levels'].max()
     return df, max_level
 
 
-def conv_leaf_dict(x):
-    '''Convert leaf-level dict into a D3.js-compatible format'''
-    y = []
-    for key in x:
-        tmp = {
-            'name': key[-1],
-            'value': x[key]['size_in_gb'],
-            'age_in_years': x[key]['age_in_years']
-        }
-        y.append(tmp)
-    return y
+def filter_and_aggregate(df, max_levels, gb_threshold, time_threshold):
+    df['levels_pathname'] = ''
+    df_append = []
+
+    for level in range(3, max_levels + 1):
+        df_levels = df[df['levels'] >= level].copy()
+        df_levels['levels_pathname'] = df_levels['full_pathname'].apply(path_extract, args=(level,))
+        df_levels = df_levels.groupby('levels_pathname').agg({
+            'size_in_gb': 'sum',
+            'access_datetime': 'min'
+        }).reset_index()
+        df_levels = df_levels.query(
+            f'(size_in_gb > {gb_threshold}) | (access_datetime < @time_threshold)',
+            local_dict={'time_threshold': time_threshold}
+        )
+        df_append.append(df_levels)
+
+    final_df = pd.concat(df_append).drop_duplicates('levels_pathname')
+    return final_df
 
 
-def df_to_hierarchical(df, levels):
-    def build_tree(group):
-        tree = {}
-        for key, sub_group in group.groupby(level=0, group_keys=False):
-            if sub_group.index.nlevels > 1:
-                tree[key] = build_tree(sub_group.droplevel(0))
-            else:
-                tree[key] = conv_leaf_dict(sub_group.to_dict(orient="index"))
-        return tree
-
-    hierarchical_data = {'name': "root", 'children': []}
-    grouped = df.groupby(level=list(range(levels)))
-
-    for keys, group in grouped:
-        keys = tuple(dict.fromkeys(keys))  # remove duplicates
-        node = hierarchical_data
-
-        for key in keys:
-            existing_child = next((child for child in node["children"] if child["name"] == key), None)
-            if existing_child is None:
-                new_child = {"name": key, "children": []}
-                node["children"].append(new_child)
-                node = new_child
-            else:
-                node = existing_child
-
-        if "children" not in node:
-            node["children"] = []
-        node["children"].extend(conv_leaf_dict(group.to_dict(orient="index")))
-
-    return hierarchical_data
+def to_tree(df):
+    root = {'name': 'root', 'children': []}
+    for _, row in df.iterrows():
+        parts = row['levels_pathname'].strip('/').split('/')
+        node = root
+        for part in parts:
+            match = next((child for child in node['children'] if child['name'] == part), None)
+            if not match:
+                match = {'name': part, 'children': []}
+                node['children'].append(match)
+            node = match
+        node.update({
+            'value': round(row['size_in_gb'], 2),
+            'age_in_years': round((datetime.now() - row['access_datetime']).days / 365, 2)
+        })
+    return root
 
 
 @timer_func
@@ -118,19 +116,14 @@ def main():
 
         df, max_level = process_list_file(input_filepath)
 
-        df['size_in_gb'] = df['size_in_bytes'] / 1e9
+        final_df = filter_and_aggregate(
+            df,
+            max_levels=max_level,
+            gb_threshold=config.get("gb_threshold", 0.5),
+            time_threshold=pd.to_datetime(config.get("access_time_threshold", "2023-01-01"))
+        )
 
-        split_path = df['full_pathname'].str.split('/', expand=True).iloc[:, 1:]
-        df = pd.concat([split_path, df], axis=1)
-
-        index_df = df.set_index(df.columns[:max_level].tolist())
-
-        final_df = index_df.groupby(level=list(range(max_level))).agg({
-            'size_in_gb': 'sum',
-            'age_in_years': 'mean'
-        })
-
-        hierarchical_data = df_to_hierarchical(final_df, max_level)
+        hierarchical_data = to_tree(final_df)
 
         with open(os.path.join(output_dir, "processed_data.json"), "w") as f:
             json.dump(hierarchical_data, f, indent=4)
