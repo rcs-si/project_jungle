@@ -93,6 +93,15 @@ def to_tree(df):
         })
     return root
 
+def prune_empty_children(node):
+    if 'children' in node:
+        if not node['children']:
+            del node['children']
+        else:
+            for child in node['children']:
+                prune_empty_children(child)
+
+
 
 @timer_func
 def main():
@@ -124,10 +133,9 @@ def main():
         )
 
         hierarchical_data = to_tree(final_df)
+        
+        # Prune empty children before dumping 
+        prune_empty_children(hierarchical_data)
 
         with open(os.path.join(output_dir, "processed_data.json"), "w") as f:
             json.dump(hierarchical_data, f, indent=4)
-
-
-if __name__ == "__main__":
-    main()
