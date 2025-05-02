@@ -109,38 +109,6 @@ def prune_empty_children(node):
         else:
             node['children'] = new_children
 
-# def to_tree(df):
-#     root = {'name': 'root', 'children': {}}
-#     for _, row in df.iterrows():
-#         parts = row['levels_pathname'].strip('/').split('/')
-#         node = root
-#         for part in parts:
-#             if 'children' not in node:
-#                 node['children'] = {}
-#             if part not in node['children']:
-#                 node['children'][part] = {}
-#             node = node['children'][part]
-#         node.update({
-#             'value': round(row['size_in_gb'], 2),
-#             'age_in_years': round((datetime.now() - row['access_datetime']).days / 365, 2)
-#         })
-
-#     # convert children dicts into lists
-#     def dict_to_list(node):
-#         if 'children' in node:
-#             children_list = []
-#             for name, child in node['children'].items():
-#                 child_node = {'name': name}
-#                 child_node.update(child)
-#                 dict_to_list(child_node)
-#                 children_list.append(child_node)
-#             node['children'] = children_list
-#         return node
-
-#     return dict_to_list(root)
-
-
-
 @timer_func
 def main():
     parser = argparse.ArgumentParser(prog="Project Jungle",
@@ -172,7 +140,7 @@ def main():
 
         hierarchical_data = to_tree(final_df)
         
-        # prune_empty_children(hierarchical_data)
+        prune_empty_children(hierarchical_data)
 
         with open(os.path.join(output_dir, "processed_data.json"), "w") as f:
             json.dump(hierarchical_data, f, indent=4)
