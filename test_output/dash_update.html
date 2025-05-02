@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Disk Usage Overview</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .pane {
+      flex: 1;
+      padding: 10px;
+      overflow: auto;
+    }
+
+    svg {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Left: Indented Tree -->
+  <div class="pane" id="indented"></div>
+
+  <!-- Right: Icicle Chart -->
+  <div class="pane" id="icicle"></div>
+
+  <script>
+    async function fetchData() {
+      const response = await fetch("processed_data.json");
+      const data = await response.json();
+      return data;
+    }
+
+    fetchData().then((data) => {
+      // === Indented Chart ===
+      function indentedChart(data) {
+        const format = d3.format(",");
+        const nodeSize = 17;
+        const root = d3.hierarchy(data).eachBefore((i => d => d.index = i++)(0));
+        const nodes = root.descendants();
+        const width = 600;
+        const height = (nodes.length + 1) * nodeSize;
+
+        const columns = [
+          {
+            label: "Size (GB)",
+            value: d => d.value,
+            format,
+            x: 400
+          },
+          {
+            label: "Count",
+            value: d => d.children ? 0 : 1,
+            format: (value, d) => d.children ? format(value) : "-",
+            x: 470
+          }
+        ];
+
+        const svg = d3.create("svg")
+          .attr("width", width)
+          .attr("height", height)
+          .attr("viewBox", [-nodeSize / 2, -nodeSize * 3 / 2, width, height])
+          .attr("style", "max-width: 100%; height: auto; font: 10px sans-serif; overflow: visible;");
+
+        const link = svg.append("g")
+          .attr("fill", "none")
+          .attr("stroke", "#999")
+          .selectAll()
+          .data(root.links())
+          .join("path")
+          .attr("d", d => `
+            M${d.source.depth * nodeSize},${d.source.index * nodeSize}
+            V${d.target.index * nodeSize}
+            h${nodeSize}
+          `);
+
+        const node = svg.append("g")
+          .selectAll()
+          .data(nodes)
+          .join("g")
+          .attr("transform", d => `translate(0,${d.index * nodeSize})`);
+
+        node.append("circle")
+          .attr("cx", d => d.depth * nodeSize)
+          .attr("r", 2.5)
+          .attr("fill", d => d.children ? null : "#999");
+
+        node.append("text")
+          .attr("dy", "0.32em")
+          .attr("x", d => d.depth * nodeSize + 6)
+          .text(d => d.data.name);
+
+        for (const { label, value, format, x } of columns) {
+          svg.append("text")
+            .attr("dy", "0.32em")
+            .attr("y", -nodeSize)
+            .attr("x", x)
+            .attr("text-anchor", "start")
+            .attr("font-weight", "bold")
+            .text(label);
+
+          node.append("text")
+            .attr("dy", "0.32em")
+            .attr("x", x)
+            .attr("text-anchor", "start")
+            .attr("fill", d => d.children ? null : "#555")
+            .data(root.copy().sum(value).descendants())
+            .text(d => format(d.value, d));
+        }
+
+        return svg.node();
+      }
+
+      // === Icicle Chart ===
+      function icicleChart(data) {
+        const width = 700;
+        const height = 600;
+
+        const colorMapping = {
+          "less than 2.5": "rgb(255,127,0)",
+          "between 2.5 and 5": "rgb(55,126,184)",
+          "between 5 and 7.5": "rgb(77,175,74)",
+          "between 7.5 and 10": "rgb(152,78,163)",
+          "10 years or more": "rgb(228,26,28)"
+        };
+
+        function getAgeBin(age) {
+          if (age < 2.5) return "less than 2.5";
+          else if (age < 5) return "between 2.5 and 5";
+          else if (age < 7.5) return "between 5 and 7.5";
+          else if (age < 10) return "between 7.5 and 10";
+          else return "10 years or more";
+        }
+
+        const hierarchy = d3.hierarchy(data)
+          .sum(d => d.value * 1000)
+          .sort((a, b) => b.height - a.height || b.value - a.value);
+
+        const root = d3.partition()
+          .size([height, (hierarchy.height + 1) * width / 3])(hierarchy);
+
+        const svg = d3.create("svg")
+          .attr("viewBox", [0, 0, width, height])
+          .attr("width", width)
+          .attr("height", height)
+          .attr("style", "max-width: 100%; height: auto; font: 10px sans-serif;");
+
+        const cell = svg
+          .selectAll("g")
+          .data(root.descendants())
+          .join("g")
+          .attr("transform", d => `translate(${d.y0},${d.x0})`);
+
+        const rect = cell.append("rect")
+          .attr("width", d => d.y1 - d.y0 - 1)
+          .attr("height", d => rectHeight(d))
+          .attr("fill-opacity", 0.6)
+          .attr("fill", d => {
+            const age = d.data.age_in_years ?? 0;
+            const bin = getAgeBin(age);
+            return colorMapping[bin] || "#ccc";
+          })
+          .style("cursor", "pointer")
+          .on("click", clicked);
+
+        const text = cell.append("text")
+          .style("user-select", "none")
+          .attr("pointer-events", "none")
+          .attr("x", 4)
+          .attr("y", 13)
+          .attr("fill-opacity", d => +labelVisible(d));
+
+        text.append("tspan")
+          .text(d => d.data.name);
+
+        const format = d3.format(",d");
+        const tspan = text.append("tspan")
+          .attr("fill-opacity", d => labelVisible(d) * 0.7)
+          .text(d => ` ${format(d.value)}`);
+
+        cell.append("title")
+          .text(d => `${d.ancestors().map(d => d.data.name).reverse().join("/")}\n${format(d.value)}`);
+
+        let focus = root;
+        function clicked(event, p) {
+          focus = focus === p ? p = p.parent : p;
+
+          root.each(d => d.target = {
+            x0: (d.x0 - p.x0) / (p.x1 - p.x0) * height,
+            x1: (d.x1 - p.x0) / (p.x1 - p.x0) * height,
+            y0: d.y0 - p.y0,
+            y1: d.y1 - p.y0
+          });
+
+          const t = cell.transition().duration(750)
+            .attr("transform", d => `translate(${d.target.y0},${d.target.x0})`);
+
+          rect.transition(t).attr("height", d => rectHeight(d.target));
+          text.transition(t).attr("fill-opacity", d => +labelVisible(d.target));
+          tspan.transition(t).attr("fill-opacity", d => labelVisible(d.target) * 0.7);
+        }
+
+        function rectHeight(d) {
+          return d.x1 - d.x0 - Math.min(1, (d.x1 - d.x0) / 2);
+        }
+
+        function labelVisible(d) {
+          return d.y1 <= width && d.y0 >= 0 && d.x1 - d.x0 > 16;
+        }
+
+        return svg.node();
+      }
+
+      // Render both charts
+      document.getElementById("indented").appendChild(indentedChart(data));
+      document.getElementById("icicle").appendChild(icicleChart(data));
+    });
+  </script>
+</body>
+</html>

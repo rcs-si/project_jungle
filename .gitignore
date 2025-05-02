@@ -15,6 +15,5 @@ final_df.pk
 viz_df_cell.pk
 viz_df.pk
 *.pk
-test_output
 file.py
-processed_data.json
+test_output/processed_data.json
