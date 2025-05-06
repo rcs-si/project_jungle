@@ -49,9 +49,10 @@ def summarize_file(infile, oldest_years, year_incr):
     # Strictly speaking this ignores leap years, but that should be ok.
     df['period'] = pd.cut((time.time() - df['access_time'])/(365*24*3600), 
                          bins=[0]+bins+[oldest_years*10], include_lowest=True, labels=cats)
-    return df.groupby('period',observed=True).agg({"size": "sum", "access_time": "count"}).\
+    df = df.groupby('period',observed=True).agg({"size": "sum", "access_time": "count"}).\
            rename(columns={'size':'size (GB)','access_time':'N'}) 
-
+    df.index.rename('Age (years)', inplace=True)
+    return df
  
  
 if __name__ == '__main__':
@@ -78,7 +79,6 @@ if __name__ == '__main__':
     results = summarize_file(infile, oldest_years, year_incr)
     pd.options.display.float_format = '{:,.1f}'.format
     if outfile:
-        outfile.write(results)
-        outfile.close()
+        results.to_csv(outfile, index=True)
     else:
         print(results)
