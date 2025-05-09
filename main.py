@@ -109,6 +109,40 @@ def prune_empty_children(node):
         else:
             node['children'] = new_children
 
+def flatten_tree_to_csv(node, parent_path='', rows=None):
+    if rows is None:
+        rows = []
+
+    current_path = os.path.join(parent_path, node['name']) if parent_path else node['name']
+    size = node.get('value', 0.0)
+    age = node.get('age_in_years', None)
+
+    # Determine if it's a file or directory
+    node_type = 'file' if 'children' not in node else 'directory'
+
+    # Compute age bin
+    if age is not None:
+        if age < 2.5:
+            age_bin = '<2.5'
+        elif age <= 10:
+            age_bin = '2.5–10'
+        else:
+            age_bin = '>10'
+    else:
+        age_bin = 'N/A'
+
+    rows.append({
+        'Path': current_path,
+        'Size_GB': round(size, 2),
+        'Type': node_type,
+        'Age_Bin': age_bin
+    })
+
+    for child in node.get('children', []):
+        flatten_tree_to_csv(child, current_path, rows)
+
+    return rows
+
 @timer_func
 def main():
     parser = argparse.ArgumentParser(prog="Project Jungle",
@@ -141,6 +175,12 @@ def main():
         hierarchical_data = to_tree(final_df)
         
         prune_empty_children(hierarchical_data)
+
+        # Flatten to CSV
+        rows = flatten_tree_to_csv(hierarchical_data)
+        csv_output_path = os.path.join(output_dir, "flattened.csv")
+        pd.DataFrame(rows).to_csv(csv_output_path, index=False)
+
 
         with open(os.path.join(output_dir, "processed_data.json"), "w") as f:
             json.dump(hierarchical_data, f, indent=4)

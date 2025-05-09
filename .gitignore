@@ -17,3 +17,5 @@ viz_df.pk
 *.pk
 file.py
 test_output/processed_data.json
+test_output/flattened.csv
+*.csv
