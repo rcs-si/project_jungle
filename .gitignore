@@ -19,3 +19,4 @@ file.py
 test_output/processed_data.json
 test_output/flattened.csv
 *.csv
+test_output/dash_complete.html
