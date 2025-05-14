@@ -181,7 +181,7 @@
         }
 
         const hierarchy = d3.hierarchy(data)
-          .sum(d => d.value * 1000)
+          .sum(d => Math.log10(d.value + 1)) 
           .sort((a, b) => b.height - a.height || b.value - a.value);
 
         const root = d3.partition()

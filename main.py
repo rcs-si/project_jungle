@@ -32,7 +32,7 @@ def process_list_file(input_filepath):
             input_filepath,
             usecols=[4, 6, 8, 11],  # 4: owner, 6: size, 8: access time, 11: path
             names=['owner', 'size_in_bytes', 'access_time', 'full_pathname'],
-            dtype={'owner': str, 'size': float, 'access_time': float, 'full_pathname': str},
+            dtype={'owner': str, 'size_in_bytes': float, 'access_time': float, 'full_pathname': str},
             sep='\\s+',
             on_bad_lines='skip',
             encoding_errors='backslashreplace'
@@ -46,13 +46,19 @@ def process_list_file(input_filepath):
     if df.empty:
         raise ValueError("DataFrame is empty after filtering. Check the input file format.")
 
+    # Strip /gpfs4 prefix for cleaner output
     df['full_pathname'] = df['full_pathname'].str.replace('/gpfs4', '', regex=False)
+
+    # Remove root-owned files
+    df = df[df['owner'] != 'root'].copy()
+
     df['size_in_gb'] = df['size_in_bytes'] / 1e9
     df['levels'] = df['full_pathname'].str.count('/')
     df['access_datetime'] = pd.to_datetime(df['access_time'], unit='s')
 
     max_level = 5
     return df, max_level
+
 
 
 def filter_and_aggregate(df, max_levels, gb_threshold, time_threshold):
@@ -77,7 +83,7 @@ def filter_and_aggregate(df, max_levels, gb_threshold, time_threshold):
 
 
 def to_tree(df):
-    root = {'name': 'root', 'children': []}
+    root = {'name': '', 'children': []}
     for _, row in df.iterrows():
         parts = row['levels_pathname'].strip('/').split('/')
         node = root
@@ -114,7 +120,7 @@ def flatten_tree_to_csv(node, parent_path='', rows=None):
         rows = []
 
     if node['name'] == 'root':
-        current_path = ''
+        current_path = '/'
     else:
         current_path = os.path.join(parent_path, node['name']) if parent_path else node['name']
 
