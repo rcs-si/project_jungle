@@ -10,7 +10,14 @@
       margin: 0;
       font-family: sans-serif;
       display: flex;
+      flex-direction: column;
       height: 100vh;
+      overflow: hidden;
+    }
+
+    .pane-container {
+      display: flex;
+      flex: 1;
       overflow: hidden;
     }
 
@@ -22,26 +29,68 @@
 
     svg {
       display: block;
+      font: 14px sans-serif;
     }
   </style>
 </head>
 <body>
 
-  <!-- Left: Indented Tree -->
-  <div class="pane" id="indented"></div>
+  <!-- Main Chart Area with Indented and Icicle -->
+  <div class="pane-container">
+    <!-- Left: Indented Tree -->
+    <div class="pane" id="indented"></div>
 
-  <!-- Right: Icicle Chart -->
-  <div class="pane" id="icicle"></div>
+    <!-- Right: Legend + Icicle -->
+    <div class="pane">
+      <div id="legend" style="margin-bottom: 10px;"></div>
+      <div id="icicle"></div>
+    </div>
+  </div>
 
   <script>
     async function fetchData() {
-      const response = await fetch("processed_data.json");
-      const data = await response.json();
-      return data;
+      data = {"name": "root", "children": [{"name": "rprojectnb", "children": [{"name": "ncrna", "children": [{"name": "DCC_protocol", "children": [{"name": "DCC-kit", "children": [{"name": "GRCh38.primary_assembly.genome.fa", "value": 3.15, "age_in_years": 0.53}, {"name": "STAR-2.6.1c", "value": 0.04, "age_in_years": 3.12}, {"name": "ref", "value": 1.26, "age_in_years": 0.53}, {"name": "sratoolkit.2.11.2-centos_linux64", "value": 0.28, "age_in_years": 2.59}], "value": 4.85, "age_in_years": 3.12}, {"name": "Genome_index", "children": [{"name": "GrCh38_100n", "value": 29.78, "age_in_years": 0.53}, {"name": "log.e", "value": 0.0, "age_in_years": 2.93}], "value": 29.78, "age_in_years": 2.93}], "value": 34.63, "age_in_years": 3.12}, {"name": "DCC_protocol_mice", "children": [{"name": "DCC-kit", "children": [{"name": "Mus_musculus.GRCm39.dna.primary_assembly.fa", "value": 2.77, "age_in_years": 1.43}, {"name": "ref", "value": 1.58, "age_in_years": 1.46}, {"name": "tmp", "value": 1.43, "age_in_years": 1.48}], "value": 6.11, "age_in_years": 1.48}, {"name": "Genome_index", "children": [{"name": "GRCm39_150n", "value": 27.08, "age_in_years": 1.35}, {"name": "GRCm39_50n", "value": 26.55, "age_in_years": 1.48}, {"name": "Mus_musculus.GRCm39.107.gtf", "value": 0.87, "age_in_years": 1.35}, {"name": "Mus_musculus.GRCm39.107_remove_na.gtf", "value": 0.87, "age_in_years": 1.48}, {"name": "Mus_musculus.GRCm39.dna.primary_assembly.fa", "value": 2.77, "age_in_years": 1.35}, {"name": "human", "value": 60.73, "age_in_years": 1.48}], "value": 118.88, "age_in_years": 1.48}], "value": 124.99, "age_in_years": 1.48}, {"name": "DCCprotocol_test", "children": [{"name": "Raw_data", "children": [{"name": "copy.qsub", "value": 0.0, "age_in_years": 2.98}, {"name": "copy.sh", "value": 0.0, "age_in_years": 3.06}, {"name": "list", "value": 0.0, "age_in_years": 3.06}, {"name": "log.e", "value": 0.0, "age_in_years": 3.09}, {"name": "log.o", "value": 0.0, "age_in_years": 3.09}, {"name": "test_copy.py", "value": 0.0, "age_in_years": 2.98}], "value": 0.0, "age_in_years": 3.09}, {"name": "niagads_act", "children": [{"name": "Cache", "value": 0.0, "age_in_years": 3.06}, {"name": "Raw_data", "value": 0.0, "age_in_years": 3.06}, {"name": "Run", "value": 0.0, "age_in_years": 3.06}, {"name": "log.e", "value": 0.0, "age_in_years": 3.06}, {"name": "log.o", "value": 0.0, "age_in_years": 3.06}], "value": 0.0, "age_in_years": 3.06}], "value": 0.0, "age_in_years": 3.09}, {"name": "Human_reference_ensembl", "children": [{"name": "release_108", "children": [{"name": "Homo_sapiens.GRCh38.108.gtf", "value": 1.46, "age_in_years": 1.89}, {"name": "Homo_sapiens.GRCh38.dna.primary_assembly.fa", "value": 3.15, "age_in_years": 2.17}, {"name": "rsem_v131_ref", "value": 2.58, "age_in_years": 2.24}, {"name": "star_genome", "value": 29.89, "age_in_years": 2.24}], "value": 37.07, "age_in_years": 2.24}], "value": 37.07, "age_in_years": 2.24}, {"name": "minty", "children": [{"name": "EP4", "children": [{"name": "elute", "value": 47.49, "age_in_years": 2.02}, {"name": "input", "value": 93.1, "age_in_years": 2.02}], "value": 140.58, "age_in_years": 2.02}, {"name": "circRIP", "children": [{"name": "singularity", "value": 95.24, "age_in_years": 2.03}], "value": 95.24, "age_in_years": 2.03}, {"name": "samb_data4", "children": [{"name": "Run", "value": 55.47, "age_in_years": 2.05}], "value": 55.48, "age_in_years": 2.05}, {"name": "samb_data4_removeOL", "children": [{"name": "Run", "value": 49.45, "age_in_years": 2.04}], "value": 49.47, "age_in_years": 2.04}, {"name": "samb_data_removeOL_linear", "children": [{"name": "Run", "value": 49.14, "age_in_years": 2.04}], "value": 49.14, "age_in_years": 2.04}], "value": 389.91, "age_in_years": 2.05}]}]}]};
+      return data ;
     }
 
     fetchData().then((data) => {
-      // === Indented Chart ===
+      const colorMapping = {
+        "less than 2.5": "rgb(255,127,0)",
+        "between 2.5 and 5": "rgb(55,126,184)",
+        "between 5 and 7.5": "rgb(77,175,74)",
+        "between 7.5 and 10": "rgb(152,78,163)",
+        "10 years or more": "rgb(228,26,28)"
+      };
+
+      function renderLegend() {
+        const legend = d3.select("#legend")
+          .append("svg")
+          .attr("width", 700)
+          .attr("height", 40)
+          .style("font", "12px sans-serif");
+
+        const entries = Object.entries(colorMapping);
+        const boxSize = 12;
+        const spacing = 140;
+
+        const g = legend.selectAll("g")
+          .data(entries)
+          .enter()
+          .append("g")
+          .attr("transform", (d, i) => `translate(${i * spacing}, 10)`);
+
+        g.append("rect")
+          .attr("width", boxSize)
+          .attr("height", boxSize)
+          .attr("fill", d => d[1]);
+
+        g.append("text")
+          .attr("x", boxSize + 5)
+          .attr("y", boxSize / 2)
+          .attr("dy", "0.35em")
+          .text(d => d[0]);
+      }
+
       function indentedChart(data) {
         const format = d3.format(",");
         const nodeSize = 17;
@@ -120,18 +169,9 @@
         return svg.node();
       }
 
-      // === Icicle Chart ===
       function icicleChart(data) {
-        const width = 700;
-        const height = 600;
-
-        const colorMapping = {
-          "less than 2.5": "rgb(255,127,0)",
-          "between 2.5 and 5": "rgb(55,126,184)",
-          "between 5 and 7.5": "rgb(77,175,74)",
-          "between 7.5 and 10": "rgb(152,78,163)",
-          "10 years or more": "rgb(228,26,28)"
-        };
+        const width = 800;
+        const height = 700;
 
         function getAgeBin(age) {
           if (age < 2.5) return "less than 2.5";
@@ -142,7 +182,7 @@
         }
 
         const hierarchy = d3.hierarchy(data)
-          .sum(d => d.value * 1000)
+          .sum(d => Math.log10(d.value + 1))
           .sort((a, b) => b.height - a.height || b.value - a.value);
 
         const root = d3.partition()
@@ -220,7 +260,7 @@
         return svg.node();
       }
 
-      // Render both charts
+      renderLegend();
       document.getElementById("indented").appendChild(indentedChart(data));
       document.getElementById("icicle").appendChild(icicleChart(data));
     });

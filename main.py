@@ -5,7 +5,6 @@ import pandas as pd
 from timeit import default_timer as timer
 from datetime import datetime
 
-
 def timer_func(func):
     def wrapper(*args, **kwargs):
         t1 = timer()
@@ -82,17 +81,38 @@ def filter_and_aggregate(df, max_levels, gb_threshold, time_threshold):
     return final_df
 
 
+# def to_tree(df):
+#     root = {'name': '', 'children': []}
+#     for _, row in df.iterrows():
+#         parts = row['levels_pathname'].strip('/').split('/')
+#         node = root
+#         for part in parts:
+#             match = next((child for child in node['children'] if child['name'] == part), None)
+#             if not match:
+#                 match = {'name': part, 'children': []}
+#                 node['children'].append(match)
+#             node = match
+#         node.update({
+#             'value': round(row['size_in_gb'], 2),
+#             'age_in_years': round((datetime.now() - row['access_datetime']).days / 365, 2)
+#         })
+#     return root
+
 def to_tree(df):
     root = {'name': '', 'children': []}
     for _, row in df.iterrows():
         parts = row['levels_pathname'].strip('/').split('/')
         node = root
-        for part in parts:
+        for i, part in enumerate(parts):
             match = next((child for child in node['children'] if child['name'] == part), None)
             if not match:
                 match = {'name': part, 'children': []}
+                # Set value to 0 at non-leaf nodes
+                if i < len(parts) - 1:
+                    match['value'] = 0
                 node['children'].append(match)
             node = match
+        # Leaf node: set the actual size and age
         node.update({
             'value': round(row['size_in_gb'], 2),
             'age_in_years': round((datetime.now() - row['access_datetime']).days / 365, 2)
@@ -161,7 +181,7 @@ def fill_html_template(template, output_dir, hierarchical_data):
     with open(template, 'r') as f:
         html_text = f.read()
     
-    filled_html = html_text.replace("'~!~!~!~'", json.dumps(hierarchical_data))
+    filled_html = html_text.replace("~!~!~!~;", json.dumps(hierarchical_data))
     
     output_path = os.path.join(output_dir, 'dash_complete.html')
     with open(output_path, 'w') as f:
@@ -211,8 +231,8 @@ def main():
         with open(os.path.join(output_dir, "processed_data.json"), "w") as f:
             json.dump(hierarchical_data, f, indent=4)
 
-        # html_template_path = 'test_output/dash.html'
-        # fill_html_template(html_template_path, output_dir, hierarchical_data)
+        html_template_path = 'test_output/dash.html'
+        fill_html_template(html_template_path, output_dir, hierarchical_data)
 
 
 if __name__ == "__main__":

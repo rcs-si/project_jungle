@@ -5,6 +5,22 @@ import datetime
 import argparse
 import time
 
+# Summary of file sizes by owner and access time bin (in GB):
+# 
+# Columns:
+# - 'owner': Username of the file owner.
+# - 'Size-GB-less than 2.5': Total size of files accessed within the last 2.5 years.
+# - 'Size-GB-between 2.5 and 5.0': Total size of files accessed between 2.5 and 5 years ago.
+#
+# Data:
+# owner     | Size-GB-less than 2.5 | Size-GB-between 2.5 and 5.0
+# --------------------------------------------------------------
+# aknyshov  |       37.087 GB       |           0.000 GB
+# minty     |      549.542 GB       |           0.0003 GB
+#
+# Note:
+# - Only two time bins are shown because no files were found in older bins.
+
 
 def gen_categories(bins):
     ''' From the bins, generate categories for each.'''
