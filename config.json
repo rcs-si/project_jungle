@@ -1,6 +1,6 @@
 {
     "analysis_parameter": {
-        "years": 1,
+        "years": 10,
         "levels": 5,
         "gb_threshold": 10
     },

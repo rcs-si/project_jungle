@@ -72,7 +72,7 @@ def filter_and_aggregate(df, max_levels, gb_threshold, time_threshold):
             'access_datetime': 'min'
         }).reset_index()
         df_levels = df_levels.query(
-            f'(size_in_gb > {gb_threshold}) | (access_datetime < @time_threshold)',
+            f'(size_in_gb > {gb_threshold})', #& (access_datetime < @time_threshold)',
             local_dict={'time_threshold': time_threshold}
         )
         df_append.append(df_levels)
@@ -81,22 +81,22 @@ def filter_and_aggregate(df, max_levels, gb_threshold, time_threshold):
     return final_df
 
 
-# def to_tree(df):
-#     root = {'name': '', 'children': []}
-#     for _, row in df.iterrows():
-#         parts = row['levels_pathname'].strip('/').split('/')
-#         node = root
-#         for part in parts:
-#             match = next((child for child in node['children'] if child['name'] == part), None)
-#             if not match:
-#                 match = {'name': part, 'children': []}
-#                 node['children'].append(match)
-#             node = match
-#         node.update({
-#             'value': round(row['size_in_gb'], 2),
-#             'age_in_years': round((datetime.now() - row['access_datetime']).days / 365, 2)
-#         })
-#     return root
+def to_tree(df):
+    root = {'name': '', 'children': []}
+    for _, row in df.iterrows():
+        parts = row['levels_pathname'].strip('/').split('/')
+        node = root
+        for part in parts:
+            match = next((child for child in node['children'] if child['name'] == part), None)
+            if not match:
+                match = {'name': part, 'children': []}
+                node['children'].append(match)
+            node = match
+        node.update({
+            'value': round(row['size_in_gb'], 2),
+            'age_in_years': round((datetime.now() - row['access_datetime']).days / 365, 2)
+        })
+    return root
 
 # def to_tree(df):
 #     root = {'name': '', 'children': []}
@@ -119,26 +119,26 @@ def filter_and_aggregate(df, max_levels, gb_threshold, time_threshold):
 
 
 
-def to_tree(df):
-    root = {'name': '', 'children': []}
-    for _, row in df.iterrows():
-        parts = row['levels_pathname'].strip('/').split('/')
-        node = root
-        for i, part in enumerate(parts):
-            match = next((child for child in node['children'] if child['name'] == part), None)
-            if not match:
-                match = {'name': part, 'children': []}
-                # Set "value" to 0 for non-leaf nodes
-                if i < len(parts) - 1:
-                    match['value'] = 0
-                node['children'].append(match)
-            node = match
-        # Only set actual size and age for the leaf node
-        node.update({
-            'value': round(row['size_in_gb'], 3),
-            'age_in_years': round((datetime.now() - row['access_datetime']).days / 365, 2)
-        })
-    return root
+# def to_tree(df):
+#     root = {'name': '', 'children': []}
+#     for _, row in df.iterrows():
+#         parts = row['levels_pathname'].strip('/').split('/')
+#         node = root
+#         for i, part in enumerate(parts):
+#             match = next((child for child in node['children'] if child['name'] == part), None)
+#             if not match:
+#                 match = {'name': part, 'children': []}
+#                 # Set "value" to 0 for non-leaf nodes
+#                 if i < len(parts) - 1:
+#                     match['value'] = 0
+#                 node['children'].append(match)
+#             node = match
+#         # Only set actual size and age for the leaf node
+#         node.update({
+#             'value': round(row['size_in_gb'], 3),
+#             'age_in_years': round((datetime.now() - row['access_datetime']).days / 365, 2)
+#         })
+#     return root
 
 
 
@@ -157,6 +157,7 @@ def prune_empty_children(node):
             del node['children']
         else:
             node['children'] = new_children
+            node['value'] = 0
 
 def flatten_tree_to_csv(node, parent_path='', rows=None):
     if rows is None:
