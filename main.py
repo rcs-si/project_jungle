@@ -189,7 +189,7 @@ def flatten_tree_to_csv(node, parent_path='', rows=None):
 
     if current_path != '':  # skip adding the root row itself
         rows.append({
-            'Path': current_path,
+            'Path': '/' + current_path,
             'Size_GB': round(size, 3),
             'Type': node_type,
             'Age_Bin': age_bin
