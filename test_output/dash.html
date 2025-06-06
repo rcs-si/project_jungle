@@ -49,7 +49,7 @@
   <script>
     async function fetchData() {
       data = ~!~!~!~;
-      return data ;
+      return data.children[0];
     }
 
     fetchData().then((data) => {
@@ -103,13 +103,13 @@
             label: "Size (GB)",
             value: d => d.value,
             format,
-            x: 400
+            x: 600
           },
           {
             label: "Count",
             value: d => d.children ? 0 : 1,
             format: (value, d) => d.children ? format(value) : "-",
-            x: 470
+            x: 700
           }
         ];
 
