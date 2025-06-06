@@ -211,7 +211,7 @@ def main():
         with open(os.path.join(output_dir, "processed_data.json"), "w") as f:
             json.dump(hierarchical_data, f, indent=4)
 
-        html_template_path = 'test_output/dash.html'
+        html_template_path = 'test_output/dash_n.html'
         fill_html_template(html_template_path, output_dir, hierarchical_data)
 
 
