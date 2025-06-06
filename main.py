@@ -1,66 +1,173 @@
 import argparse
-import csv
 import json
 import os
 import sys
 import pandas as pd
-import plotly.express as px
-from analyze import analyze_data
 from timeit import default_timer as timer
+from datetime import datetime
 
 def timer_func(func):
     def wrapper(*args, **kwargs):
         t1 = timer()
         result = func(*args, **kwargs)
         t2 = timer()
-        print(f'{func.__name__}() executed in {(t2-t1):.6f}s')
+        print(f'{func.__name__}() executed in {(t2 - t1):.6f}s')
         return result
     return wrapper
+
 
 def count_levels(file_path):
     return file_path.count('/')
 
-def process_list_files(input_filepath, output_filepath):
-    max_level = 0
-    index_error_raise_count = 0
-    other_error = 0
-    with open(input_filepath, 'r', encoding='UTF-8', errors='backslashreplace') as infile:
-        with open(output_filepath, 'w') as outfile:
-            writer = csv.writer(outfile)
-            for i, line in enumerate(infile):
-                try:
-                    strip_line = line.strip()
-                    split_line = strip_line.split(maxsplit=11)
-                    pathname = split_line[-1]
-                    levels = count_levels(pathname)
-                    max_level = max(max_level, levels)
-                    owner = split_line[4]
-                    size_in_bytes = split_line[6]
-                    size_in_kb = split_line[7]
-                    access_time = split_line[8]
-                    full_pathname = split_line[11]
-                    writer.writerow([owner, size_in_bytes, size_in_kb, access_time, full_pathname])
-                except UnicodeDecodeError:
-                    index_error_raise_count += 1
-                except Exception as e:
-                    other_error += 1
-    return max_level, index_error_raise_count, other_error
+  
+def path_extract(full_pathname, levels, level_limit=False):
+    if level_limit and full_pathname.count('/') < levels:
+        return ''
+    return '/'.join(full_pathname.split('/')[0:levels + 1])
 
-def load_data(file_path, max_level, delimiter=','):
-    df = pd.read_csv(file_path, delimiter=delimiter, header=None)
-    df.columns = ['owner', 'size_in_bytes', 'size_in_kb', 'access_time', 'full_pathname']
+
+def process_list_file(input_filepath):
+    try:
+        df = pd.read_csv(
+            input_filepath,
+            usecols=[4, 6, 8, 11],  # 4: owner, 6: size, 8: access time, 11: path
+            names=['owner', 'size_in_bytes', 'access_time', 'full_pathname'],
+            dtype={'owner': str, 'size_in_bytes': float, 'access_time': float, 'full_pathname': str},
+            sep='\\s+',
+            on_bad_lines='skip',
+            encoding_errors='backslashreplace'
+        )
+    except Exception as e:
+        print(f"Failed to read input file: {e}")
+        raise
+
+    df = df.dropna()
+
+    if df.empty:
+        raise ValueError("DataFrame is empty after filtering. Check the input file format.")
+
+    # Strip /gpfs4 prefix for cleaner output
+    df['full_pathname'] = df['full_pathname'].str.replace('/gpfs4', '', regex=False)
+
+    # Remove root-owned files
+    df = df[df['owner'] != 'root'] 
     df['size_in_gb'] = df['size_in_bytes'] / 1e9
+    df['levels'] = df['full_pathname'].str.count('/')
+    df['access_datetime'] = pd.to_datetime(df['access_time'], unit='s')
 
-    # Transfer access time to human-readable format
-    df['access_datetime'] = pd.to_datetime(df['access_time'], unit='s', origin='unix')
-    df = df[['owner', 'size_in_gb', 'access_datetime', 'full_pathname']]
+    max_level = 5
+    return df, max_level
+
+
+
+def filter_and_aggregate(df, max_levels, gb_threshold, time_threshold):
+    df['levels_pathname'] = ''
+    df_append = []
+
+    for level in range(3, max_levels + 1):
+        df_levels = df[df['levels'] >= level].copy()
+        df_levels['levels_pathname'] = df_levels['full_pathname'].apply(path_extract, args=(level,))
+        df_levels = df_levels.groupby('levels_pathname').agg({
+            'size_in_gb': 'sum',
+            'access_datetime': 'min'
+        }).reset_index()
+        df_levels = df_levels.query(
+            f'(size_in_gb > {gb_threshold})', #& (access_datetime < @time_threshold)',
+            local_dict={'time_threshold': time_threshold}
+        )
+        df_append.append(df_levels)
+
+    final_df = pd.concat(df_append).drop_duplicates('levels_pathname')
+    return final_df
+
+
+def to_tree(df):
+    root = {'name': '', 'children': []}
+    for _, row in df.iterrows():
+        parts = row['levels_pathname'].strip('/').split('/')
+        node = root
+        for part in parts:
+            match = next((child for child in node['children'] if child['name'] == part), None)
+            if not match:
+                match = {'name': part, 'children': []}
+                node['children'].append(match)
+            node = match
+        node.update({
+            'value': round(row['size_in_gb'], 2),
+            'age_in_years': round((datetime.now() - row['access_datetime']).days / 365, 2)
+        })
+    return root
+
+def prune_empty_children(node):
+    if 'children' in node:
+        # prune each child first recursively
+        new_children = []
+        for child in node['children']:
+            prune_empty_children(child)
+            if 'children' not in child and 'value' not in child:
+                # This child is totally empty, don't keep it
+                continue
+            new_children.append(child)
+        if not new_children:
+            # no children left -> remove the 'children' key
+            del node['children']
+        else:
+            node['children'] = new_children
+            node['value'] = 0
+
+def flatten_tree_to_csv(node, parent_path='', rows=None):
+    if rows is None:
+        rows = []
+
+    if node['name'] == 'root':
+        current_path = '/'
+    else:
+        current_path = os.path.join(parent_path, node['name']) if parent_path else node['name']
+
+    size = node.get('value', 0.0)
+    age = node.get('age_in_years', None)
+
+    node_type = 'file' if 'children' not in node else 'directory'
+
+    if age is not None:
+        if age < 2.5:
+            age_bin = "<2.5"
+        elif age < 5:
+            age_bin = "2.5–5"
+        elif age < 7.5:
+            age_bin = "5–7.5"
+        elif age < 10:
+            age_bin = "7.5–10"
+        else:
+            age_bin = ">10"
+    else:
+        age_bin = "N/A"
+
+    if current_path != '':  # skip adding the root row itself
+        rows.append({
+            'Path': '/' + current_path,
+            'File_Size_GB': round(size, 3),
+            'Type': node_type,
+            'Age_Bin': age_bin
+        })
+
+    for child in node.get('children', []):
+        flatten_tree_to_csv(child, current_path, rows)
+
+    return rows
+
+def fill_html_template(template, output_dir, hierarchical_data):
+    """Fills the placeholder in an HTML template with hierarchical JSON data."""
+    with open(template, 'r') as f:
+        html_text = f.read()
     
-    # Create levels of directories and files
-    split_path = df['full_pathname'].str.split('/', expand=True).iloc[:, 1:]
-    df = pd.concat([split_path, df], axis=1)
+    filled_html = html_text.replace("~!~!~!~;", json.dumps(hierarchical_data))
+    
+    output_path = os.path.join(output_dir, 'dash_complete.html')
+    with open(output_path, 'w') as f:
+        f.write(filled_html)
 
-    index_df = df.set_index(df.columns[:max_level].tolist())
-    return index_df
+
 
 @timer_func
 def main():
@@ -68,104 +175,47 @@ def main():
                                      description="Analyze project directories")
     parser.add_argument("-f", "--file", help="Input file to analyze")
     parser.add_argument("-o", "--output", help="Output directory")
-    args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
-    
+
+    args = parser.parse_args()
     script_dir = os.path.dirname(os.path.realpath(__file__))
     with open(os.path.join(script_dir,'config.json')) as config_file:
         config = json.load(config_file)
-
         input_filepath = args.file
-        file = args.file.split("/")[-1]
-        filename = file.split(".")[0]
-
         output_dir = args.output
-        pp_dir = output_dir + "/pp/"
-        analysis_dir = output_dir + "/analysis/"
-        vis_dir = output_dir + "/viz/"
-
-        if not os.path.exists(pp_dir):
-            os.makedirs(pp_dir)
-        
-        if not os.path.exists(analysis_dir):
-            os.makedirs(analysis_dir)
-
-        if not os.path.exists(vis_dir):
-            os.makedirs(vis_dir)
 
         if not os.path.exists(input_filepath):
-            print(input_filepath)
             print("The input filepath doesn't exist")
             raise SystemExit(1)
-    
-        max_level, index_error_raise_count, other_error = process_list_files(input_filepath, pp_dir + file)
-        print("Index error raised: ", index_error_raise_count)
-        print("Other error raised: ", other_error)
-        print("-------------------- Finished preprocessing --------------------")
+            
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
 
-        current_datetime = pd.Timestamp.now()
-        years_ago = current_datetime - pd.Timedelta(days=365*config["analysis_parameter"]["years"])
-        levels = config["analysis_parameter"]["levels"]
-        gb_threshold = config["analysis_parameter"]["gb_threshold"]
+        df, max_level = process_list_file(input_filepath)
 
-        index_df = load_data(pp_dir + file, max_level)
-        print("-------------------- Finished loading data --------------------")
-
-        final_df = analyze_data(index_df, levels, gb_threshold, years_ago)
-        print("-------------------- Finished analyzing data --------------------")
-        analysis_filepath = analysis_dir + filename + ".csv"
-        final_df.to_csv(analysis_filepath)
-
-        ### Visualizations
-        vis_df = final_df.copy()
-        vis_df = vis_df.reset_index()
-        #vis_df.fillna("NA", inplace=True)
-        vis_df = vis_df.fillna("")
-        vis_df["year"] = vis_df["access_datetime"].dt.year
-        vis_df["size_in_gb"] = vis_df["size_in_gb"].apply(lambda x: x + 1e-9)
-
-        # Retrieve bins and colors from config
-        bins = config["color_mapping"]["bins"]
-        colors = config["color_mapping"]["colors"]
-
-        # Assign each entry to a bin based on 'size_in_gb'
-        vis_df['size_bin'] = pd.cut(vis_df['size_in_gb'],
-                                     bins=[0, 2.5, 5, 7.5, 10, float('inf')],
-                                     labels=bins, right=False)
-
-        fig = px.treemap(
-            vis_df,
-            path=vis_df.columns[2:levels],
-            values='size_in_gb',
-            color='size_bin',
-            color_discrete_map=colors
+        final_df = filter_and_aggregate(
+            df,
+            max_levels=max_level,
+            gb_threshold=config.get("gb_threshold", 0.5),
+            time_threshold=pd.to_datetime(config.get("access_time_threshold", "2023-01-01"))
         )
 
-        # Adding a legend dynamically from config
-        legend_text = '<b>Legend:</b><br>'
-        for bin_label, color_name in colors.items():
-            legend_text += f'<span style="color:{color_name}">{bin_label}</span><br>'
+        hierarchical_data = to_tree(final_df)
+        
+        prune_empty_children(hierarchical_data)
 
-        fig.update_layout(
-            annotations=[
-                dict(
-                    x=1.05,
-                    y=1.0,
-                    text=legend_text,
-                    showarrow=False,
-                    align='left',
-                    xanchor='left',
-                    yanchor='top',
-                    xref='paper',
-                    yref='paper',
-                    bordercolor='black',
-                    borderwidth=1
-                )
-            ],
-            margin=dict(t=50, l=25, r=200, b=25)
-        )
+        # Flatten to CSV
+        rows = flatten_tree_to_csv(hierarchical_data)
+        csv_output_path = os.path.join(output_dir, "flattened.csv")
+        pd.DataFrame(rows).to_csv(csv_output_path, index=False)
 
-        fig.update_traces(hovertemplate='labels=%{label}<br>size_in_gb=%{value:.1f}<br>parent=%{parent}<br>id=%{id}<br>size_bin=%{color}<extra></extra>')
-        fig.write_html(vis_dir + filename + ".html")
+
+        # with open(os.path.join(output_dir, "processed_data.json"), "w") as f:
+        #     json.dump(hierarchical_data, f, indent=4)
+
+        html_template_path = 'templates/dash.html'
+        fill_html_template(html_template_path, output_dir, hierarchical_data)
+
 
 if __name__ == "__main__":
     main()
+
