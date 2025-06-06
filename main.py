@@ -146,7 +146,7 @@ def flatten_tree_to_csv(node, parent_path='', rows=None):
     if current_path != '':  # skip adding the root row itself
         rows.append({
             'Path': '/' + current_path,
-            'Size_GB': round(size, 3),
+            'File_Size_GB': round(size, 3),
             'Type': node_type,
             'Age_Bin': age_bin
         })
@@ -208,10 +208,10 @@ def main():
         pd.DataFrame(rows).to_csv(csv_output_path, index=False)
 
 
-        with open(os.path.join(output_dir, "processed_data.json"), "w") as f:
-            json.dump(hierarchical_data, f, indent=4)
+        # with open(os.path.join(output_dir, "processed_data.json"), "w") as f:
+        #     json.dump(hierarchical_data, f, indent=4)
 
-        html_template_path = 'test_output/dash_n.html'
+        html_template_path = 'templates/dash.html'
         fill_html_template(html_template_path, output_dir, hierarchical_data)
 
 
