@@ -6,7 +6,7 @@ import numpy as np
 import datetime 
 import argparse
 
-#Cadre:
+#Project_name:
 #period                    N `size (GB)`
 #10 years or more         15           0
 #between 7.5 and 10       29           0
@@ -82,3 +82,4 @@ if __name__ == '__main__':
         results.to_csv(outfile, index=True)
     else:
         print(results)
+        

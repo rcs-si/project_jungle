@@ -1,0 +1,8 @@
+#!/bin/bash 
+
+SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+# Execute the summary.py program
+
+/share/pkg.8/python3/3.12.4/install/bin/python $SCRIPT_DIR/summary.py "$@"
+

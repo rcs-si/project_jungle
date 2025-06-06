@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import sys
 import pandas as pd
 from timeit import default_timer as timer
 from datetime import datetime
@@ -18,7 +19,7 @@ def timer_func(func):
 def count_levels(file_path):
     return file_path.count('/')
 
-
+  
 def path_extract(full_pathname, levels, level_limit=False):
     if level_limit and full_pathname.count('/') < levels:
         return ''
@@ -49,8 +50,7 @@ def process_list_file(input_filepath):
     df['full_pathname'] = df['full_pathname'].str.replace('/gpfs4', '', regex=False)
 
     # Remove root-owned files
-    df = df[df['owner'] != 'root'].copy()
-
+    df = df[df['owner'] != 'root'] 
     df['size_in_gb'] = df['size_in_bytes'] / 1e9
     df['levels'] = df['full_pathname'].str.count('/')
     df['access_datetime'] = pd.to_datetime(df['access_time'], unit='s')
@@ -175,9 +175,10 @@ def main():
                                      description="Analyze project directories")
     parser.add_argument("-f", "--file", help="Input file to analyze")
     parser.add_argument("-o", "--output", help="Output directory")
-    args = parser.parse_args()
 
-    with open('config.json') as config_file:
+    args = parser.parse_args()
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    with open(os.path.join(script_dir,'config.json')) as config_file:
         config = json.load(config_file)
         input_filepath = args.file
         output_dir = args.output
@@ -185,7 +186,7 @@ def main():
         if not os.path.exists(input_filepath):
             print("The input filepath doesn't exist")
             raise SystemExit(1)
-
+            
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 

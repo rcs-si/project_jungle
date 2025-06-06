@@ -15,12 +15,11 @@ import time
 # Data:
 # owner     | Size-GB-less than 2.5 | Size-GB-between 2.5 and 5.0
 # --------------------------------------------------------------
-# aknyshov  |       37.087 GB       |           0.000 GB
-# minty     |      549.542 GB       |           0.0003 GB
+# user1     |       37.087 GB       |           0.000 GB
+# user2     |      549.542 GB       |           0.0003 GB
 #
 # Note:
 # - Only two time bins are shown because no files were found in older bins.
-
 
 def gen_categories(bins):
     ''' From the bins, generate categories for each.'''
@@ -87,3 +86,4 @@ if __name__ == '__main__':
         pd.set_option('display.width',None)
         print(results)
 
+ 

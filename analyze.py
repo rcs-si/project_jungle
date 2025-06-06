@@ -32,7 +32,6 @@ def analyze_data(df, max_levels, gb_threshold, time_threshold):
                                     local_dict={'t_thresh':time_threshold})
         #df_levels.to_csv("aggregate_level.csv", single_file=True)
         df_append.append(df_levels)
-
     # Finally concat the list of dataframes into one dataframe
     final_df = pd.concat(df_append) 
     # Filter it for any remaining files that are outside the limits.
@@ -48,7 +47,7 @@ def analyze_data(df, max_levels, gb_threshold, time_threshold):
     final_df = final_df.merge(tmp_df, left_on='levels_pathname',right_on='full_pathname')
     final_df = final_df.reset_index()
     return final_df
-    
+
 
 
      
