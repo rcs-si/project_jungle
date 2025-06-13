@@ -87,9 +87,170 @@
     let focus = null;
 
     async function fetchData() {
-      const data = ~!~!~!~; // Replace with your actual data object
-      return data.children[0];
-    }
+        const data = {
+            "name": "",
+            "children": [
+            {
+                "name": "rprojectnb",
+                "children": [
+                {
+                    "name": "john_cluster",
+                    "children": [
+                    {
+                        "name": "neuralnets",
+                        "children": [
+                        {
+                            "name": "training_data",
+                            "children": [
+                            {
+                                "name": "v1",
+                                "children": [
+                                {
+                                    "name": "data_matrix.csv",
+                                    "value": 2.34,
+                                    "age_in_years": 0.8
+                                },
+                                {
+                                    "name": "labels.csv",
+                                    "value": 0.54,
+                                    "age_in_years": 0.8
+                                }
+                                ],
+                                "value": 0,
+                                "age_in_years": 2.0
+                            },
+                            {
+                                "name": "preprocessing",
+                                "children": [
+                                {
+                                    "name": "normalize.py",
+                                    "value": 0.12,
+                                    "age_in_years": 12.1
+                                }
+                                ],
+                                "value": 0,
+                                "age_in_years": 12.1
+                            }
+                            ],
+                            "value": 0,
+                            "age_in_years": 12.1
+                        },
+                        {
+                            "name": "models",
+                            "children": [
+                            {
+                                "name": "resnet50",
+                                "children": [
+                                {
+                                    "name": "checkpoint.pth",
+                                    "value": 45.7,
+                                    "age_in_years": 1.3
+                                },
+                                {
+                                    "name": "config.json",
+                                    "value": 0.03,
+                                    "age_in_years": 1.3
+                                }
+                                ],
+                                "value": 0,
+                                "age_in_years": 1.3
+                            },
+                            {
+                                "name": "transformer",
+                                "children": [
+                                {
+                                    "name": "model_final.bin",
+                                    "value": 88.12,
+                                    "age_in_years": 11.4
+                                }
+                                ],
+                                "value": 0,
+                                "age_in_years": 11.4
+                            }
+                            ],
+                            "value": 0,
+                            "age_in_years": 11.4
+                        }
+                        ],
+                        "value": 0
+                    },
+                    {
+                        "name": "jane_compute",
+                        "children": [
+                        {
+                            "name": "simulations",
+                            "children": [
+                            {
+                                "name": "weather_model",
+                                "children": [
+                                {
+                                    "name": "output_2023.nc",
+                                    "value": 63.28,
+                                    "age_in_years": 1.8
+                                },
+                                {
+                                    "name": "params.yml",
+                                    "value": 0.02,
+                                    "age_in_years": 1.8
+                                }
+                                ],
+                                "value": 0,
+                                "age_in_years": 1.8
+                            },
+                            {
+                                "name": "ocean_currents",
+                                "children": [
+                                {
+                                    "name": "grid_results.nc",
+                                    "value": 58.77,
+                                    "age_in_years": 1.7
+                                }
+                                ],
+                                "value": 0,
+                                "age_in_years": 1.7
+                            }
+                            ],
+                            "value": 0,
+                            "age_in_years": 1.8
+                        },
+                        {
+                            "name": "data_exports",
+                            "children": [
+                            {
+                                "name": "public_datasets",
+                                "children": [
+                                {
+                                    "name": "climate_data_2020.csv",
+                                    "value": 12.34,
+                                    "age_in_years": 2.4
+                                },
+                                {
+                                    "name": "climate_data_2010.csv",
+                                    "value": 13.22,
+                                    "age_in_years": 13.6
+                                }
+                                ],
+                                "value": 0,
+                                "age_in_years": 13.6
+                            }
+                            ],
+                            "value": 0,
+                            "age_in_years": 13.6
+                        }
+                        ],
+                        "value": 0
+                    }
+                    ],
+                    "value": 0
+                }
+                ],
+                "value": 0
+            }
+            ],
+            "value": 0
+        };
+        return data.children[0]; // Skip root node
+}
 
     fetchData().then(data => {
       currentData = data;
